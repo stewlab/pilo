@@ -148,3 +148,20 @@ func UpdateDevshell(name, content string) error {
 	filePath := filepath.Join(getDevshellsDir(), name+".nix")
 	return os.WriteFile(filePath, []byte(content), 0644)
 }
+
+// Develop enters a persistent development shell.
+func Develop(args []string) error {
+	fmt.Println("Entering a development shell...")
+	flakePath := config.GetFlakePath()
+	// Default to the 'default' shell if no arguments are provided
+	shell := "default"
+	if len(args) > 0 {
+		shell = args[0]
+	}
+
+	// Construct the flake reference
+	flakeRef := fmt.Sprintf("%s#%s", flakePath, shell)
+
+	// The command should be "nix", "develop", "<flakeRef>"
+	return nix.RunInteractiveCommand("nix", "develop", flakeRef)
+}

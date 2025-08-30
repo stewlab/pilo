@@ -2,6 +2,7 @@ package nix
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
 )
@@ -23,6 +24,14 @@ func RunCommand(command string, args ...string) (string, error) {
 		return "", fmt.Errorf("error running command '%s %s': %s\n%s", command, strings.Join(args, " "), err, string(output))
 	}
 	return string(output), nil
+}
+
+func RunInteractiveCommand(command string, args ...string) error {
+	cmd := exec.Command(command, args...)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
 }
 
 func RunSudoCommand(password string, args ...string) (string, error) {

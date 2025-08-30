@@ -213,17 +213,6 @@ func List() (string, error) {
 	return output, nil
 }
 
-// Develop enters a persistent development shell.
-func Develop(args []string) error {
-	fmt.Println("Entering a development shell...")
-	command := []string{"develop", "pilo"}
-	if len(args) > 0 {
-		command = append(command, args...)
-	}
-	_, err := nix.RunCommand("nix", command...)
-	return err
-}
-
 // Shell enters a temporary shell with the specified packages.
 func Shell(packages []string) error {
 	fmt.Println("Entering a temporary shell...")
