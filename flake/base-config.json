@@ -1,0 +1,58 @@
+{
+  "aliases": {
+    "..": "cd ..",
+    "gs": "git status",
+    "ll": "ls -alF"
+  },
+  "commit_triggers": [],
+  "packages": [
+
+    { "name": "curl", "installed": true },
+    { "name": "git", "installed": true },
+    { "name": "pciutils", "installed": true },
+    { "name": "wget", "installed": true },
+    { "name": "blender", "installed": true },
+    { "name": "delve", "installed": true },
+    { "name": "gcc", "installed": true },
+    { "name": "go", "installed": true },
+    { "name": "godot", "installed": true },
+    { "name": "gopls", "installed": true },
+    { "name": "neovim", "installed": true },
+    { "name": "pkg-config", "installed": true },
+    { "name": "python3", "installed": true },
+    { "name": "freeciv", "installed": true },
+    { "name": "gzdoom", "installed": true },
+    { "name": "minetest", "installed": true },
+    { "name": "nethack", "installed": true },
+    { "name": "nethack-x11", "installed": true },
+    { "name": "superTuxKart", "installed": true },
+    { "name": "wesnoth", "installed": true },
+    { "name": "gimp", "installed": true },
+    { "name": "inkscape", "installed": true },
+    { "name": "chromium", "installed": true },
+    { "name": "firefox", "installed": true },
+    { "name": "mpv", "installed": true },
+    { "name": "rclone", "installed": true },
+    { "name": "vlc", "installed": true },
+    { "name": "vscodium", "installed": true },
+    { "name": "wine", "installed": true }
+  ],
+  "push_on_commit": true,
+  "remote_branch": "main",
+  "remote_url": "",
+  "system": {
+    "username": "",
+    "desktop": "",
+    "type": "x86_64-linux",
+    "ollama": {
+      "models": ""
+    }
+  },
+  "users": [
+    {
+      "username": "nixuser",
+      "email": "nixuser@pilo",
+      "name": "Nix User"
+    }
+  ]
+}

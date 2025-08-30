@@ -1,0 +1,8 @@
+*.kate-swp
+/bin/
+/flake/result
+/.go/
+/result
+
+# Go vendor directory
+vendor/

@@ -1,0 +1,5 @@
+{
+  "gs": "git status",
+  "ll": "ls -alF",
+  "my-go": "nix develop .#my-devshell --command go"
+}
