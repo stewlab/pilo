@@ -9,51 +9,30 @@ on:
       - main
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Run container build script
-        run: ./container_build.sh build
-
   build:
-    needs: test
-    strategy:
-      matrix:
-        go-version: ['1.22']
-        platform:
-          - linux/amd64
-          - linux/arm64
-          - linux/riscv64
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Fix Git safe.directory
-        run: git config --global --add safe.directory ${{ github.workspace }}
 
       - name: Get the version
         id: get_version
         run: echo "VERSION=$(git describe --tags --always --dirty)" >> $GITHUB_ENV
 
-      - name: Run xgo
-        uses: crazy-max/ghaction-xgo@v2
-        with:
-          xgo_version: latest
-          go_version: ${{ matrix.go-version }}
-          dest: bin
-          prefix: pilo
-          targets: ${{ matrix.platform }}
-          v: true
-          x: true
-          race: true
-          ldflags: -s -w -X pilo/internal/cli.Version=${{ env.VERSION }}
+      - name: Build application in container
+        run: ./container_build.sh build
+
+      - name: Create artifacts directory
+        run: mkdir -p artifacts
+
+      - name: Extract binary from container
+        run: |
+          CONTAINER_ID=$(docker create pilo-app:latest)
+          docker cp ${CONTAINER_ID}:/usr/local/bin/pilo ./artifacts/pilo-linux-amd64
+          docker rm ${CONTAINER_ID}
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: pilo-${{ matrix.platform }}
-          path: bin/pilo-*
+          name: pilo-linux-amd64
+          path: artifacts/pilo-linux-amd64
