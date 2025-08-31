@@ -3,20 +3,20 @@ package api
 import (
 	"bytes"
 	"errors"
+	"fmt"
+	"io"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"pilo/internal/config"
+	"strings"
 	"time"
 
-	"fmt"
-
 	"github.com/go-git/go-git/v5"
-
 	gitconfig "github.com/go-git/go-git/v5/config"
 	"github.com/go-git/go-git/v5/plumbing"
 	"github.com/go-git/go-git/v5/plumbing/object"
 	"github.com/go-git/go-git/v5/plumbing/transport/ssh"
+	"github.com/pmezard/go-difflib/difflib"
 )
 
 // ErrDirtyRepository is returned when a git operation fails because the repository has uncommitted changes.
@@ -432,46 +432,102 @@ func GetGitStatus(repoPath string) (string, error) {
 	return status.String(), nil
 }
 
+// GetGitDiff returns a unified-like diff between HEAD and the working tree.
+// If the repo has no HEAD commit, it will show all files in the worktree as additions.
+// Caveats: submodule special handling and exact git CLI formatting are not fully reproduced.
 func GetGitDiff(repoPath string) (string, error) {
-	// Using the native git command is more reliable for diffing, especially with submodules.
-	cmd := exec.Command("git", "diff", "--submodule=diff", "HEAD")
-	cmd.Dir = repoPath
-
-	var out bytes.Buffer
-	var stderr bytes.Buffer
-	cmd.Stdout = &out
-	cmd.Stderr = &stderr
-
-	err := cmd.Run()
+	// open repository
+	repo, err := git.PlainOpen(repoPath)
 	if err != nil {
-		// Check if the error is because there are no commits yet
-		if _, errOpen := git.PlainOpen(repoPath); errOpen == git.ErrRepositoryNotExists {
+		if err == git.ErrRepositoryNotExists {
 			return "Not a git repository.", nil
 		}
-		// Check for empty repository case
-		repo, errOpen := git.PlainOpen(repoPath)
-		if errOpen == nil {
-			if _, errHead := repo.Head(); errHead == plumbing.ErrReferenceNotFound {
-				// No HEAD commit, so we can't diff. Show all files as new.
-				// We can do this by diffing against the "empty tree" hash.
-				cmd := exec.Command("git", "diff", "--submodule=diff", "4b825dc642cb6eb9a060e54bf8d69288fbee4904")
-				cmd.Dir = repoPath
-				cmd.Stdout = &out
-				cmd.Stderr = &stderr
-				if err := cmd.Run(); err != nil {
-					return "", fmt.Errorf("failed to get initial diff: %w: %s", err, stderr.String())
-				}
-				return out.String(), nil
-			}
-		}
-		return "", fmt.Errorf("git diff command failed: %w: %s", err, stderr.String())
+		return "", fmt.Errorf("open repo: %w", err)
 	}
 
-	if out.String() == "" {
+	wt, err := repo.Worktree()
+	if err != nil {
+		return "", fmt.Errorf("worktree: %w", err)
+	}
+
+	// status lists changed files (tracked changes, staged, untracked, deleted)
+	status, err := wt.Status()
+	if err != nil {
+		return "", fmt.Errorf("status: %w", err)
+	}
+
+	// If nothing changed, behave like git diff (empty output -> "No changes.")
+	if status.IsClean() {
 		return "No changes.", nil
 	}
 
-	return out.String(), nil
+	// Try to get HEAD commit (may not exist in an empty repository)
+	var headTree *object.Tree
+	headRef, errHead := repo.Head()
+	if errHead == nil {
+		commit, err := repo.CommitObject(headRef.Hash())
+		if err == nil {
+			tr, err := commit.Tree()
+			if err == nil {
+				headTree = tr
+			}
+		}
+	}
+
+	var out bytes.Buffer
+
+	// iterate changed files reported by Status
+	for path, fileStatus := range status {
+		// skip .git directory entries accidentally reported
+		if strings.HasPrefix(path, ".git/") {
+			continue
+		}
+
+		// read old content (from HEAD tree) if available
+		var oldContent string
+		if headTree != nil {
+			if f, err := headTree.File(path); err == nil && f != nil {
+				r, err := f.Reader()
+				if err == nil {
+					b, _ := io.ReadAll(r)
+					_ = r.Close()
+					oldContent = string(b)
+				}
+			}
+		}
+
+		// read new content (from working tree). If file missing (deleted), leave empty.
+		var newContent string
+		absPath := filepath.Join(repoPath, path)
+		if bs, err := os.ReadFile(absPath); err == nil {
+			newContent = string(bs)
+		}
+
+		oldLines := strings.Split(oldContent, "\n")
+		newLines := strings.Split(newContent, "\n")
+
+		ud := difflib.UnifiedDiff{
+			A:        oldLines,
+			B:        newLines,
+			FromFile: "a/" + path,
+			ToFile:   "b/" + path,
+			Context:  3,
+		}
+		patchStr, err := difflib.GetUnifiedDiffString(ud)
+		if err != nil {
+			return "", fmt.Errorf("make diff: %w", err)
+		}
+		out.WriteString(patchStr)
+
+		// You might want to include submodule handling here if you need it.
+		_ = fileStatus // kept in case you want to show staged vs worktree info
+	}
+
+	result := out.String()
+	if result == "" {
+		return "No changes.", nil
+	}
+	return result, nil
 }
 
 func GitPush(repoPath string) error {
