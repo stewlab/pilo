@@ -4,9 +4,22 @@ on:
   push:
     branches:
       - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run container build script
+        run: ./container_build.sh build
+
   build:
+    needs: test
     strategy:
       matrix:
         go-version: ['1.22']
@@ -14,18 +27,42 @@ jobs:
           - linux/amd64
           - linux/arm64
           - linux/riscv64
-          - darwin/amd64
-          - darwin/arm64
-          - windows/amd64
     runs-on: ubuntu-latest
+    container:
+      image: quay.io/fedora/fedora:42
     steps:
+      - name: Install build dependencies
+        run: |
+          dnf install -y \
+            git \
+            golang \
+            delve \
+            pkg-config \
+            mesa-libGL-devel \
+            xauth \
+            vulkan-loader-devel \
+            libglvnd-devel \
+            libxkbcommon-devel \
+            wayland-devel \
+            wayland-protocols-devel \
+            libX11-devel \
+            libXcursor-devel \
+            libXrandr-devel \
+            libXinerama-devel \
+            libXi-devel \
+            libXxf86vm-devel \
+            libXext-devel \
+            libXfixes-devel \
+            libXdamage-devel \
+            libXcomposite-devel \
+            xorg-x11-proto-devel \
+            at-spi2-core-devel \
+            libxcb-devel \
+            portaudio-devel \
+            alsa-lib-devel && \
+            dnf clean all
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
-        with:
-          go-version: ${{ matrix.go-version }}
 
       - name: Get the version
         id: get_version
