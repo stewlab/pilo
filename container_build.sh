@@ -3,7 +3,7 @@
 set -euo pipefail
 
 # --- Configuration ---
-APP_IMAGE_NAME="pilo-app"
+APP_IMAGE_NAME="pilo-app:latest"
 DEV_IMAGE_NAME="go-dev-env"
 DEV_CONTAINER_NAME="pilo-dev-container"
 APP_NAME="pilo"
