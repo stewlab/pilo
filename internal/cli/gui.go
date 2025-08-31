@@ -11,7 +11,7 @@ var guiCmd = &cobra.Command{
 	Short: "Launches the Fyne GUI for pilo.",
 	Long:  `This command launches the Fyne GUI for pilo.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		gui.Run() // This should now correctly call the public Run function
+		gui.Run(cmd.Version) // This should now correctly call the public Run function
 	},
 }
 

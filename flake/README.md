@@ -1,12 +1,12 @@
 # Pilo Nix Configuration
 
-This repository contains a self-contained and idiomatic, flake-based NixOS and Home Manager configuration.
+This repository contains a flake-based NixOS and Home Manager configuration.
 
 ## Overview
 
-This configuration is built upon NixOS and Home Manager, managed via a single flake. It is designed to be a declarative and reproducible system configuration.
+This configuration is built on NixOS and Home Manager, and managed by a single flake. It provides a declarative and reproducible system configuration.
 
-This flake-based configuration manages:
+This flake manages:
 -   **NixOS System Configuration**: The core operating system settings, packages, and services for NixOS hosts.
 -   **Home Manager**: User-specific configurations, including dotfiles and user packages.
 -   **Development Shells**: Pre-configured development environments.
@@ -14,13 +14,13 @@ This flake-based configuration manages:
 
 ## How It Works
 
-This flake is designed to provide a unified configuration for three distinct Nix environments: a full NixOS system, a multi-user Nix installation on another Linux distribution, and a single-user Nix installation. It achieves this by exposing different outputs that are consumed by different tools.
+This flake provides a unified configuration for three Nix environments: a full NixOS system, a multi-user Nix installation on another Linux distribution, and a single-user Nix installation. It exposes different outputs that are consumed by different tools.
 
--   **For NixOS**: The `nixosConfigurations` output defines the entire operating system. When you run `pilo rebuild`, it builds the complete system configuration from `./hosts/nixos/configuration.nix` and integrates Home Manager as a system module. This creates a fully declarative and reproducible OS.
+-   **For NixOS**: The `nixosConfigurations` output defines the entire operating system. When you run `pilo rebuild`, it builds the system configuration from `./hosts/nixos/configuration.nix` and integrates Home Manager as a system module. This creates a declarative and reproducible OS.
 
--   **For Single-User & Multi-User Nix**: The `homeConfigurations` output is used for non-NixOS systems. It creates a standalone Home Manager configuration for each user defined in the flake. A user can run `pilo rebuild` to apply their personal configuration without affecting the base system or other users. This works identically for a single user on a machine or for multiple users who each manage their own environment from the same flake.
+-   **For Single-User & Multi-User Nix**: The `homeConfigurations` output is used for non-NixOS systems. It creates a standalone Home Manager configuration for each user defined in the flake. A user can run `pilo rebuild` to apply their personal configuration without affecting the base system or other users. This works for a single user on a machine or for multiple users who each manage their own environment from the same flake.
 
--   **Universal Tools**: The `devShells`, `packages`, and `apps` outputs are universal. They can be used on any Nix-enabled system (NixOS or otherwise) to create development environments (`pilo develop`), install custom packages (`pilo install`), or run applications (`nix run`).
+-   **Universal Tools**: The `devShells`, `packages`, and `apps` outputs are universal. They can be used on any Nix-enabled system to create development environments (`pilo develop`), install custom packages (`pilo install`), or run applications (`nix run`).
 
 ### Configuration Flow Diagram
 

@@ -57,12 +57,14 @@ build_dev_image() {
 
 build_app_image() {
   local extra_args="$1"
-  echo "Building final application image: ${APP_IMAGE_NAME}"
+  local build_version="${2:-0.0.1}" # Default version if not provided
+  echo "Building final application image: ${APP_IMAGE_NAME} with version ${build_version}"
   $CONTAINER_CMD build \
     ${extra_args} \
     --build-arg APP_NAME="${FINAL_BINARY_NAME}" \
     --build-arg BINARY_PATH="${BUILDER_BINARY_PATH}" \
     --build-arg MAIN_GO_PATH="${MAIN_GO_PATH}" \
+    --build-arg BUILD_VERSION="${build_version}" \
     -t "${APP_IMAGE_NAME}" \
     -f Containerfile .
 }
@@ -155,7 +157,8 @@ run_dev_build_and_run() {
   
   echo "Compiling and running in development container..."
   # Construct a command that exports the necessary GUI variables before building and running
-  local run_cmd="export DISPLAY=${DISPLAY}; export XAUTHORITY=${XAUTHORITY}; go build -o ${BUILDER_BINARY_PATH} ${MAIN_GO_PATH} && ./${BUILDER_BINARY_PATH} $@"
+  local ldflags="-X pilo/internal/cli.Version=${BUILD_VERSION:-0.0.1}"
+  local run_cmd="export DISPLAY=${DISPLAY}; export XAUTHORITY=${XAUTHORITY}; go build -ldflags='${ldflags}' -o ${BUILDER_BINARY_PATH} ${MAIN_GO_PATH} && ./${BUILDER_BINARY_PATH} $@"
   $CONTAINER_CMD exec -it "${DEV_CONTAINER_NAME}" bash -c "${run_cmd}"
 }
 

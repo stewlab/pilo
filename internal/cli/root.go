@@ -11,23 +11,30 @@ import (
 	"github.com/spf13/cobra"
 )
 
-var rootCmd = &cobra.Command{
-	Use:   "pilo",
-	Short: "A command-line tool for managing your Nix environment.",
-	Long:  `A longer description that spans multiple lines and likely contains examples and usage of using your application.`,
-	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		// Check if the command is 'install' and if so, skip the auto-install logic
-		if cmd.Name() == "install" {
-			return
-		}
-		handleAutoInstall()
-	},
-	Run: func(cmd *cobra.Command, args []string) {
-		cmd.Help()
-	},
-}
+var (
+	rootCmd = &cobra.Command{
+		Use:   "pilo",
+		Short: "A command-line tool for managing your Nix environment.",
+		Long: `Pilo is a command-line tool that simplifies the management of Nix environments by providing a set of intuitive commands to handle common tasks.
 
-func Execute(flakeFS embed.FS) {
+It allows you to easily manage your NixOS configurations, packages, and development environments, reducing the complexity and learning curve associated with Nix.
+
+With Pilo, you can perform tasks such as system rebuilds, package installations, and configuration rollbacks with simple, easy-to-remember commands, making your Nix experience smoother and more productive.`,
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			// Check if the command is 'install' and if so, skip the auto-install logic
+			if cmd.Name() == "install" {
+				return
+			}
+			handleAutoInstall()
+		},
+		Run: func(cmd *cobra.Command, args []string) {
+			cmd.Help()
+		},
+	}
+)
+
+func Execute(flakeFS embed.FS, version string) {
+	rootCmd.Version = version
 	api.SetFlakeFS(flakeFS)
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)

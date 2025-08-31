@@ -4,27 +4,29 @@ A command-line tool for managing your Nix environment.
 
 ## Installation
 
-There are two primary ways to use Pilo: through a persistent installation or in a temporary shell.
+Pilo offers two ways to manage your Nix environment. For a detailed explanation of the flake and its structure, see the [`flake/README.md`](flake/README.md).
 
-### Persistent Installation (Recommended for Regular Use)
+### Full Installation (Pilo Binary + Flake)
 
-For long-term use, you can install Pilo directly into your user profile. This makes the `pilo` command permanently available in all your shell sessions, just like any other application installed on your system.
+This method installs the `pilo` binary, which includes an embedded `flake/` directory with version control. The Pilo application manages its own Nix configuration.
 
 ```bash
 nix profile install github:stewlab/pilo
 ```
 
-This command modifies your user's Nix profile (`~/.nix-profile`) and the installation is tracked by Nix's generation management, allowing you to roll back if needed.
+When you run `pilo` for the first time, it will create the necessary configuration files in `~/.config/pilo`, providing a managed Nix environment.
 
-### Temporary Shell (for Testing or Occasional Use)
+### Standalone Flake (Nix Configuration Only)
 
-If you want to try out Pilo without permanently installing it, or if you only need it for a single task, you can use `nix shell`. This command creates an ephemeral environment where the `pilo` command is available only for the current shell session.
+If you prefer to manage your Nix environment manually, you can use the `flake/` directory as a standalone Nix configuration. This approach is for users who are comfortable working directly with Nix commands.
 
-```bash
-nix shell github:stewlab/pilo
-```
+To use the flake, build and apply it to your system using standard Nix commands:
 
-This approach does not modify your system's permanent configuration, making it a safe and non-intrusive way to use the tool. Once you exit the shell, Pilo will no longer be in your `PATH`.
+-   **For NixOS**: `sudo nixos-rebuild switch --flake .#your-host`
+    -   **Note**: You will need to replace `flake/hosts/nixos/hardware-configuration.nix` with the one from your system, typically located at `/etc/nixos/hardware-configuration.nix`.
+-   **For Home Manager**: `home-manager switch --flake .#your-username`
+
+This method gives you full control over the Nix configuration, allowing you to integrate it into your existing setup.
 
 ## Usage
 
@@ -114,6 +116,8 @@ Pilo is configured through the `base-config.json` file, located in `~/.config/pi
 
 ## Development
 
+### Via Nix (for Nix Systems)
+
 First, clone the repository:
 
 ```bash
@@ -129,7 +133,7 @@ nix develop ./flake#go --command go build -o bin/pilo .
 
 This command enters a Nix development shell that has Go installed, and then it builds the Pilo binary, placing it in the `bin` directory.
 
-### Containerized Development
+### Via Containers (for Non-Nix Systems)
 
 This is managed via the `container_build.sh` script, which automates building and running the application in a container.
 

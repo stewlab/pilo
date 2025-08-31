@@ -53,8 +53,10 @@ ARG APP_NAME=app
 ARG BINARY_PATH=bin/${APP_NAME}
 ARG MAIN_GO_PATH=./
 
+ARG BUILD_VERSION=0.0.1
+ 
 # Build the application
-RUN go build -o ${BINARY_PATH} ${MAIN_GO_PATH}
+RUN go build -ldflags="-X pilo/internal/cli.Version=${BUILD_VERSION}" -o ${BINARY_PATH} ${MAIN_GO_PATH}
 
 # ---- Runner Stage ----
 # This stage creates the final, smaller image.
