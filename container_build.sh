@@ -58,14 +58,15 @@ build_dev_image() {
 build_app_image() {
   local extra_args="$1"
   local build_version="${2:-0.0.1}" # Default version if not provided
-  echo "Building final application image: ${APP_IMAGE_NAME} with version ${build_version}"
+  local image_tag="${3:-${APP_IMAGE_NAME}}" # Default to APP_IMAGE_NAME if not provided
+  echo "Building final application image: ${image_tag} with version ${build_version}"
   $CONTAINER_CMD build \
     ${extra_args} \
     --build-arg APP_NAME="${FINAL_BINARY_NAME}" \
     --build-arg BINARY_PATH="${BUILDER_BINARY_PATH}" \
     --build-arg MAIN_GO_PATH="${MAIN_GO_PATH}" \
     --build-arg BUILD_VERSION="${build_version}" \
-    -t "${APP_IMAGE_NAME}" \
+    -t "${image_tag}" \
     -f Containerfile .
 }
 
@@ -203,7 +204,7 @@ case "$COMMAND" in
   run)
     if ! image_exists "${APP_IMAGE_NAME}"; then
       echo "Application image not found. Building it first."
-      build_app_image ""
+      build_app_image "" "" "pilo-app:latest"
     fi
     run_app "$@"
     ;;
