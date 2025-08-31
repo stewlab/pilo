@@ -195,7 +195,7 @@ case "$COMMAND" in
     start_dev_container
     ;;
   build)
-    build_app_image ""
+    build_app_image "" "pilo-app:latest"
     ;;
   rebuild-app)
     build_app_image "--no-cache"
