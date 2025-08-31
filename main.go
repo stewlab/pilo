@@ -8,6 +8,8 @@ import (
 //go:embed all:flake
 var flakeFS embed.FS
 
+var version = "0.0.1"
+
 func main() {
-	pilo.Execute(flakeFS)
+	pilo.Execute(flakeFS, version)
 }

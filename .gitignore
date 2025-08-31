@@ -3,6 +3,7 @@
 /flake/result
 /.go/
 /result
+/pilo
 
 # Go vendor directory
 vendor/

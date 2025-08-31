@@ -26,7 +26,9 @@ if [ "$1" = "--nixos" ]; then
 fi
 
 echo "Building Pilo binary..."
-nix develop ./flake#go --command go build -o bin/pilo .
+VERSION=$(git describe --tags --always --dirty)
+LDFLAGS="-X pilo/internal/cli.Version=${VERSION}"
+nix develop ./flake#go -c go build -ldflags="${LDFLAGS}" -o ./bin/pilo .
 
 # group prod
 # nix-develop go --command go build -o bin/pilo .

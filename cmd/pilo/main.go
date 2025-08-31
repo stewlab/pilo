@@ -5,6 +5,6 @@ import (
 	"pilo/internal/cli"
 )
 
-func Execute(flakeFS embed.FS) {
-	cli.Execute(flakeFS)
+func Execute(flakeFS embed.FS, version string) {
+	cli.Execute(flakeFS, version)
 }

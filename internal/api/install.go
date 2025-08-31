@@ -67,8 +67,11 @@ func InstallPilo(path string, registry string, remoteURL string) error {
 		}
 	}
 
-	if err := InstallConfig(path, registry, ""); err != nil {
-		return fmt.Errorf("error installing configuration: %w", err)
+	// Only attempt to register the flake with Nix if the 'nix' command is available.
+	if nix.IsNixInstalled() {
+		if err := InstallConfig(path, registry, ""); err != nil {
+			return fmt.Errorf("error installing configuration: %w", err)
+		}
 	}
 
 	return nil

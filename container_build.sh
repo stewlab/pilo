@@ -57,60 +57,52 @@ build_dev_image() {
 
 build_app_image() {
   local extra_args="$1"
-  echo "Building final application image: ${APP_IMAGE_NAME}"
+  local build_version="${2:-0.0.1}" # Default version if not provided
+  echo "Building final application image: ${APP_IMAGE_NAME} with version ${build_version}"
   $CONTAINER_CMD build \
     ${extra_args} \
     --build-arg APP_NAME="${FINAL_BINARY_NAME}" \
     --build-arg BINARY_PATH="${BUILDER_BINARY_PATH}" \
     --build-arg MAIN_GO_PATH="${MAIN_GO_PATH}" \
+    --build-arg BUILD_VERSION="${build_version}" \
     -t "${APP_IMAGE_NAME}" \
     -f Containerfile .
 }
 
+# Sets up the necessary options for running a GUI application inside the container.
+# This function handles Wayland and X11 display servers.
 setup_gui_options() {
-    local HOST_UID
-    HOST_UID=$(id -u)
-    local RUNTIME_DIR="/run/user/${HOST_UID}"
-    local opts=()
-
-    opts+=(--privileged --cap-add SYS_ADMIN --security-opt seccomp=unconfined --device /dev/dri --device /dev/snd --device /dev/fuse)
-    if [[ "$CONTAINER_CMD" == "podman" ]]; then
-        opts+=(--security-opt label=disable)
-    fi
-
-    local WAYLAND_ENV_VAR_VAL="${WAYLAND_DISPLAY:-wayland-0}"
-    local DISPLAY_ENV_VAR_VAL="${DISPLAY:-:0}"
-    opts+=(--env DISPLAY="$DISPLAY_ENV_VAR_VAL" --env WAYLAND_DISPLAY="$WAYLAND_ENV_VAR_VAL" --env WINIT_UNIX_BACKEND="x11" -v /tmp/.X11-unix:/tmp/.X11-unix:ro)
-
-    if [[ -n "$XAUTHORITY" ]]; then
-        opts+=(--env XAUTHORITY="$XAUTHORITY")
-    elif [[ -d "$RUNTIME_DIR" ]]; then
-        local xauth_file
-        xauth_file=$(find "$RUNTIME_DIR" -name ".mutter-Xwaylandauth.*" 2>/dev/null | head -n 1)
-        if [[ -n "$xauth_file" ]]; then
-            opts+=(--env XAUTHORITY="$xauth_file")
-        fi
-    fi
-
-    if [[ -d "$RUNTIME_DIR" ]]; then
-        local mount_opts="z"
-        if [[ "$CONTAINER_CMD" == "docker" ]]; then
-            mount_opts="ro"
-        fi
-        opts+=(--env XDG_RUNTIME_DIR="$RUNTIME_DIR" --env DBUS_SESSION_BUS_ADDRESS="unix:path=${RUNTIME_DIR}/bus" -v "$RUNTIME_DIR:$RUNTIME_DIR:$mount_opts")
-    else
-        echo "Warning: XDG_RUNTIME_DIR ($RUNTIME_DIR) not found on host. GUI and session features might fail." >&2
-    fi
-
-    local PULSE_SOCKET_HOST_PATH="${RUNTIME_DIR}/pulse/native"
-    local PIPEWIRE_SOCKET_HOST_PATH="${RUNTIME_DIR}/pipewire-0"
-    if [ -S "$PULSE_SOCKET_HOST_PATH" ]; then
-        opts+=(--env PULSE_SERVER="unix:$PULSE_SOCKET_HOST_PATH")
-    elif [ -S "$PIPEWIRE_SOCKET_HOST_PATH" ]; then
-        opts+=(--env PULSE_SERVER="unix:${RUNTIME_DIR}/pulse/native")
-    fi
+    local -n opts_ref=$1 # Nameref to the array that will store the options
     
-    echo "${opts[@]}"
+    # Pass DISPLAY and WAYLAND_DISPLAY from host to container
+    opts_ref+=(--env DISPLAY="${DISPLAY}")
+    opts_ref+=(--env WAYLAND_DISPLAY="${WAYLAND_DISPLAY}")
+
+    # Handle X11 authorization
+    if [[ -n "${DISPLAY:-}" && -n "${XAUTHORITY:-}" ]]; then
+        local XAUTH_FILE=$(mktemp)
+        xauth nlist "${DISPLAY}" | sed -e 's/^..../ffff/' | xauth -f "${XAUTH_FILE}" nmerge -
+        chmod 644 "${XAUTH_FILE}" # Ensure the file is world-readable
+        opts_ref+=(--env XAUTHORITY="/tmp/.docker.xauthority")
+        opts_ref+=(-v "${XAUTH_FILE}:/tmp/.docker.xauthority:z")
+        # Add a cleanup trap to remove the temporary xauthority file
+        trap "rm -f ${XAUTH_FILE}" EXIT
+    fi
+
+    # Mount the X11 socket for XWayland/X11 applications
+    opts_ref+=(-v /tmp/.X11-unix:/tmp/.X11-unix)
+
+    # Mount the user's runtime directory for Wayland, Pipewire, and D-Bus
+    if [[ -d "${XDG_RUNTIME_DIR}" ]]; then
+        opts_ref+=(-v "${XDG_RUNTIME_DIR}:${XDG_RUNTIME_DIR}")
+        opts_ref+=(--env XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR}")
+    else
+        echo "Warning: XDG_RUNTIME_DIR is not set. GUI and audio may not work." >&2
+    fi
+
+    # Add device access for graphics and sound
+    opts_ref+=(--device /dev/dri)
+    opts_ref+=(--device /dev/snd)
 }
 
 start_dev_container() {
@@ -126,11 +118,11 @@ start_dev_container() {
   echo "Starting persistent development container..."
   mkdir -p "${PWD}/.go/pkg/mod"
   local opts=( -d --name "${DEV_CONTAINER_NAME}" )
-  opts+=( $(setup_gui_options) )
+  setup_gui_options opts
   opts+=(
     --env GOMODCACHE=/go/pkg/mod
-    -v "${PWD}:/app"
-    -v "${PWD}/.go:/go"
+    -v "${PWD}:/app:z"
+    -v "${PWD}/.go:/go:z"
     -w /app
   )
   
@@ -164,15 +156,17 @@ run_dev_build_and_run() {
   fi
   
   echo "Compiling and running in development container..."
-  local build_and_run_cmd="go build -o ${BUILDER_BINARY_PATH} ${MAIN_GO_PATH} && ./${BUILDER_BINARY_PATH} $@"
-  $CONTAINER_CMD exec -it "${DEV_CONTAINER_NAME}" bash -c "${build_and_run_cmd}"
+  # Construct a command that exports the necessary GUI variables before building and running
+  local ldflags="-X pilo/internal/cli.Version=${BUILD_VERSION:-0.0.1}"
+  local run_cmd="export DISPLAY=${DISPLAY}; export XAUTHORITY=${XAUTHORITY}; go build -ldflags='${ldflags}' -o ${BUILDER_BINARY_PATH} ${MAIN_GO_PATH} && ./${BUILDER_BINARY_PATH} $@"
+  $CONTAINER_CMD exec -it "${DEV_CONTAINER_NAME}" bash -c "${run_cmd}"
 }
 
 run_app() {
   echo "Running application..."
-  local opts=( --rm -it )
-  opts+=( $(setup_gui_options) )
-  $CONTAINER_CMD run "${opts[@]}" "${APP_IMAGE_NAME}" /usr/local/bin/pilo "$@"
+  local opts=( --rm -it --network=host ) # Added --network=host for X11 forwarding
+  setup_gui_options opts
+  $CONTAINER_CMD run "${opts[@]}" "${APP_IMAGE_NAME}" "$@"
 }
 
 # --- Main Logic ---

@@ -22,6 +22,11 @@ import (
 
 var refreshTabs func()
 
+var (
+	// Version is the application version, set at build time.
+	Version = "0.0.1"
+)
+
 func run() {
 	a := app.NewWithID("dev.stewlab.pilo")
 	config.Init(a)
@@ -199,6 +204,7 @@ func run() {
 		dialogs.ShowLogsDialog(logs, w)
 	})
 
+	versionLabel := widget.NewLabelWithStyle(fmt.Sprintf("Version: %s", Version), fyne.TextAlignLeading, fyne.TextStyle{})
 	statusBar := container.NewVBox(
 		widget.NewSeparator(),
 		container.NewPadded(
@@ -206,6 +212,7 @@ func run() {
 				&statusBarLayout{},
 				logsButton,
 				statusButton,
+				versionLabel,
 			),
 		),
 	)
@@ -224,7 +231,8 @@ func run() {
 }
 
 // Run is the public entry point for the GUI.
-func Run() {
+func Run(version string) {
+	Version = version
 	run()
 }
 
@@ -259,18 +267,24 @@ func handleAutoInstall(w fyne.Window) {
 type statusBarLayout struct{}
 
 func (s *statusBarLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
-	if len(objects) == 0 {
+	if len(objects) < 3 {
 		return
 	}
-	button := objects[0]
-	button.Resize(button.MinSize())
-	button.Move(fyne.NewPos(size.Width-button.MinSize().Width, (size.Height-button.MinSize().Height)/2))
+	logsButton := objects[0]
+	statusButton := objects[1]
+	versionLabel := objects[2]
 
-	if len(objects) > 1 {
-		statusButton := objects[1]
-		statusButton.Resize(fyne.NewSize(size.Width-button.MinSize().Width-theme.Padding(), statusButton.MinSize().Height))
-		statusButton.Move(fyne.NewPos(0, (size.Height-statusButton.MinSize().Height)/2))
-	}
+	// Logs button on the far right
+	logsButton.Resize(logsButton.MinSize())
+	logsButton.Move(fyne.NewPos(size.Width-logsButton.MinSize().Width, (size.Height-logsButton.MinSize().Height)/2))
+
+	// Version label on the far left
+	versionLabel.Resize(versionLabel.MinSize())
+	versionLabel.Move(fyne.NewPos(0, (size.Height-versionLabel.MinSize().Height)/2))
+
+	// Status button takes up the remaining space in the middle
+	statusButton.Resize(fyne.NewSize(size.Width-logsButton.MinSize().Width-versionLabel.MinSize().Width-theme.Padding()*2, statusButton.MinSize().Height))
+	statusButton.Move(fyne.NewPos(versionLabel.MinSize().Width+theme.Padding(), (size.Height-statusButton.MinSize().Height)/2))
 }
 
 func (s *statusBarLayout) MinSize(objects []fyne.CanvasObject) fyne.Size {
