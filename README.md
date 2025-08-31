@@ -128,3 +128,56 @@ nix develop ./flake#go --command go build -o bin/pilo .
 ```
 
 This command enters a Nix development shell that has Go installed, and then it builds the Pilo binary, placing it in the `bin` directory.
+
+### Containerized Development
+
+This is managed via the `container_build.sh` script, which automates building and running the application in a container.
+
+> **Note:** Before running the script for the first time, you may need to make it executable:
+> ```bash
+> chmod +x container_build.sh
+> ```
+
+#### Building the Application Image
+
+To build the final application image, run the following command from the project root:
+
+```bash
+./container_build.sh build
+```
+
+This command builds the image and tags it as `pilo-app`.
+
+#### Running the Application
+
+Once the image is built, you can run the application with:
+
+```bash
+./container_build.sh run pilo
+```
+
+Any arguments passed after `run` will be forwarded to the Pilo application inside the container. For example, to see the help message:
+
+```bash
+./container_build.sh run pilo --help
+```
+
+#### Development Workflow
+
+The script also provides commands to streamline development:
+
+-   `./container_build.sh start-dev`: Starts a persistent development container in the background. Your project directory is mounted into the container, so changes are reflected live.
+-   `./container_build.sh shell-dev`: Opens an interactive shell inside the running development container.
+-   `./container_build.sh run-dev`: Compiles and runs your application inside the development container. This is ideal for quick testing without rebuilding the image.
+-   `./container_build.sh stop-dev`: Stops and removes the development container.
+
+### Continuous Integration with GitHub Actions
+
+This project includes a GitHub Actions workflow to automate the building of the application binary. The workflow is defined in `.github/workflows/build.yml` and performs the following steps:
+
+1.  **Triggers**: The workflow is triggered automatically on every push to the `main` branch.
+2.  **Build Environment**: It sets up a clean Ubuntu environment with the correct Go version.
+3.  **Build**: It checks out the code, downloads dependencies, and compiles the `pilo` binary.
+4.  **Artifacts**: The compiled binary is uploaded as a build artifact named `pilo-binary`.
+
+You can find the artifacts on the "Actions" tab of your GitHub repository, under the specific workflow run. This ensures that you always have a fresh build of your application available after merging changes into your main branch.

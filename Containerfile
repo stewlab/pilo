@@ -11,6 +11,7 @@ RUN dnf install -y \
     delve \
     pkg-config \
     mesa-libGL-devel \
+    xauth \
     vulkan-loader-devel \
     libglvnd-devel \
     libxkbcommon-devel \
@@ -30,7 +31,8 @@ RUN dnf install -y \
     at-spi2-core-devel \
     libxcb-devel \
     portaudio-devel \
-    alsa-lib-devel
+    alsa-lib-devel && \
+    dnf clean all
 
 # Set Go environment variables
 ENV GOPROXY=direct
@@ -64,6 +66,7 @@ RUN dnf install -y \
     vulkan-loader \
     libglvnd \
     libxkbcommon \
+    xauth \
     libX11 \
     libXcursor \
     libXrandr \
@@ -82,8 +85,22 @@ RUN dnf install -y \
     neovim && \
     dnf clean all
 
-# Set up the workdir
+# Set up the workdir and user
+RUN adduser -u 1001 -d /app -s /bin/sh appuser && \
+    chown -R appuser:appuser /app
+
+# Create and permission the /nix directory for the single-user installation
+RUN mkdir -m 0755 /nix && chown appuser /nix
+
+# Switch to the appuser to install Nix in the user's profile
+USER appuser
 WORKDIR /app
+
+# Install Nix as the appuser
+RUN sh <(curl --proto '=https' --tlsv1.2 -L https://nixos.org/nix/install) --no-daemon
+
+# Switch back to root to copy the binary and set permissions
+USER root
 
 # Build arguments for customization
 ARG APP_NAME=app
@@ -94,8 +111,12 @@ ENV BINARY_PATH_ENV=${BINARY_PATH}
 
 # Copy the compiled binary from the builder stage
 COPY --from=builder /app/${BINARY_PATH} /usr/local/bin/${APP_NAME_ENV}
-
 RUN chmod +x /usr/local/bin/${APP_NAME_ENV}
 
-# Set the entrypoint to run the application
-CMD ["/bin/sh", "-c", "exec /usr/local/bin/${APP_NAME_ENV}"]
+# Switch back to the appuser for the final runtime environment
+USER appuser
+WORKDIR /app
+
+# Set the entrypoint to run the application, ensuring the Nix profile is sourced
+# This allows the app to start even if the Nix setup isn't fully complete.
+CMD ["/bin/sh", "-c", "[ -f /app/.nix-profile/etc/profile.d/nix.sh ] && . /app/.nix-profile/etc/profile.d/nix.sh; exec /usr/local/bin/${APP_NAME_ENV}"]

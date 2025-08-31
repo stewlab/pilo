@@ -82,6 +82,12 @@ func CommitAndPush(path, message string) error {
 	return nil
 }
 
+// IsNixInstalled checks if the 'nix' command is available in the system's PATH.
+func IsNixInstalled() bool {
+	_, err := exec.LookPath("nix")
+	return err == nil
+}
+
 func RunCommandInNewTerminal(command string, args ...string) error {
 	cmd := exec.Command(command, args...)
 	cmd.Stdin = nil
