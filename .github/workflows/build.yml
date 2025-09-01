@@ -30,7 +30,7 @@ jobs:
         run: |
           mkdir -p artifacts
           # Create a container from the newly built image, copy the binary out, and remove the container
-          CONTAINER_ID=$(docker create pilo-app:latest)
+          CONTAINER_ID=$(docker create pilo-app:${{ env.VERSION }})
           docker cp ${CONTAINER_ID}:/usr/local/bin/pilo ./artifacts/pilo-linux-amd64
           docker rm ${CONTAINER_ID}
 
