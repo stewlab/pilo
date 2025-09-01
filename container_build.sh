@@ -8,7 +8,8 @@ DEV_IMAGE_NAME="go-dev-env"
 DEV_CONTAINER_NAME="pilo-dev-container"
 APP_NAME="pilo"
 MAIN_GO_PATH="./"
-BUILDER_BINARY_PATH="bin/pilo"
+# The output path inside the builder stage is now /app/build/
+BUILDER_BINARY_PATH="/app/build/pilo"
 FINAL_BINARY_NAME="pilo"
 
 # --- Script Logic ---
@@ -59,13 +60,13 @@ build_app_image() {
   local extra_args="$1"
   local build_version="${2:-0.0.1}" # Default version if not provided
   local image_tag="${3:-${APP_IMAGE_NAME}}" # Default to APP_IMAGE_NAME if not provided
+  local ldflags="-X pilo/internal/cli.Version=${build_version}"
   echo "Building final application image: ${image_tag} with version ${build_version}"
   $CONTAINER_CMD build \
     ${extra_args} \
     --build-arg APP_NAME="${FINAL_BINARY_NAME}" \
-    --build-arg BINARY_PATH="${BUILDER_BINARY_PATH}" \
     --build-arg MAIN_GO_PATH="${MAIN_GO_PATH}" \
-    --build-arg BUILD_VERSION="${build_version}" \
+    --build-arg LDFLAGS_STRING="${ldflags}" \
     -t "${image_tag}" \
     -f Containerfile .
 }
@@ -158,8 +159,10 @@ run_dev_build_and_run() {
   
   echo "Compiling and running in development container..."
   # Construct a command that exports the necessary GUI variables before building and running
-  local ldflags="-X pilo/internal/cli.Version=${BUILD_VERSION:-0.0.1}"
-  local run_cmd="export DISPLAY=${DISPLAY}; export XAUTHORITY=${XAUTHORITY}; go build -ldflags='${ldflags}' -o ${BUILDER_BINARY_PATH} ${MAIN_GO_PATH} && ./${BUILDER_BINARY_PATH} $@"
+  local build_version
+  build_version=$(git describe --tags --always --dirty 2>/dev/null || echo "0.0.1")
+  local ldflags="-X pilo/internal/cli.Version=${build_version}"
+  local run_cmd="export DISPLAY=${DISPLAY}; export XAUTHORITY=${XAUTHORITY}; go build -ldflags='${ldflags}' -o /app/build/${APP_NAME} ${MAIN_GO_PATH} && /app/build/${APP_NAME} $@"
   $CONTAINER_CMD exec -it "${DEV_CONTAINER_NAME}" bash -c "${run_cmd}"
 }
 

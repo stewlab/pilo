@@ -175,13 +175,23 @@ The script also provides commands to streamline development:
 -   `./container_build.sh run-dev`: Compiles and runs your application inside the development container. This is ideal for quick testing without rebuilding the image.
 -   `./container_build.sh stop-dev`: Stops and removes the development container.
 
-### Continuous Integration with GitHub Actions
+#### Reusing the Containerfile for Other Go Applications
 
-This project includes a GitHub Actions workflow to automate the building of the application binary. The workflow is defined in `.github/workflows/build.yml` and performs the following steps:
+The `Containerfile` in this project is designed to be generic and can be used to build other Go applications with minimal changes. The `builder` stage is parameterized using build arguments (`ARG`).
 
-1.  **Triggers**: The workflow is triggered automatically on every push to the `main` branch.
-2.  **Build Environment**: It sets up a clean Ubuntu environment with the correct Go version.
-3.  **Build**: It checks out the code, downloads dependencies, and compiles the `pilo` binary.
-4.  **Artifacts**: The compiled binary is uploaded as a build artifact named `pilo-binary`.
+To build a different Go application, you can pass the following arguments to the `podman build` or `docker build` command:
 
-You can find the artifacts on the "Actions" tab of your GitHub repository, under the specific workflow run. This ensures that you always have a fresh build of your application available after merging changes into your main branch.
+-   `APP_NAME`: The desired name for the final binary.
+-   `MAIN_GO_PATH`: The path to the package containing the `main.go` file (e.g., `./cmd/my-other-app`).
+-   `LDFLAGS_STRING`: A string of linker flags, typically used for injecting version information (e.g., `-X main.Version=1.0.0`).
+
+Example command:
+
+```bash
+podman build \
+  --build-arg APP_NAME="my-other-app" \
+  --build-arg MAIN_GO_PATH="./cmd/my-other-app" \
+  --build-arg LDFLAGS_STRING="-X main.Version=1.0.0" \
+  -t my-other-app-image \
+  -f Containerfile .
+```
