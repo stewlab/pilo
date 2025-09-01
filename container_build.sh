@@ -199,7 +199,7 @@ case "$COMMAND" in
     start_dev_container
     ;;
   build)
-    build_version=$(git describe --tags --always --dirty 2>/dev/null || echo "0.0.1")
+    build_version="${VERSION:-$(git describe --tags --always --dirty 2>/dev/null || echo "0.0.1")}"
     build_app_image "" "${build_version}" "${APP_IMAGE_NAME}:${build_version}"
     ;;
   rebuild-app)
