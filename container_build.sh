@@ -3,7 +3,7 @@
 set -euo pipefail
 
 # --- Configuration ---
-APP_IMAGE_NAME="pilo-app:latest"
+APP_IMAGE_NAME="pilo-app"
 DEV_IMAGE_NAME="go-dev-env"
 DEV_CONTAINER_NAME="pilo-dev-container"
 APP_NAME="pilo"
@@ -199,7 +199,8 @@ case "$COMMAND" in
     start_dev_container
     ;;
   build)
-    build_app_image "" "pilo-app:latest"
+    build_version=$(git describe --tags --always --dirty 2>/dev/null || echo "0.0.1")
+    build_app_image "" "${build_version}" "${APP_IMAGE_NAME}:${build_version}"
     ;;
   rebuild-app)
     build_app_image "--no-cache"
