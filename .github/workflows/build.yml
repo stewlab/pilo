@@ -19,20 +19,17 @@ jobs:
         id: get_version
         run: echo "VERSION=$(git describe --tags --always --dirty)" >> $GITHUB_ENV
 
-      - name: Build application for PR
-        if: github.event_name == 'pull_request'
+      - name: Build application image
         run: ./container_build.sh build
 
-      - name: Build, Extract, and Upload Artifact for Main Branch
+      - name: Extract binary and Upload Artifact
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
-          # Build the application image using the existing script
-          ./container_build.sh build
-          
           # Create a directory for the artifact
           mkdir -p artifacts
           
           # Create a container from the newly built image, copy the binary out, and remove the container
+          # Note: We assume the container_build.sh script tags the image as 'pilo-app:latest'
           CONTAINER_ID=$(docker create pilo-app:latest)
           docker cp ${CONTAINER_ID}:/usr/local/bin/pilo ./artifacts/pilo-linux-amd64
           docker rm ${CONTAINER_ID}

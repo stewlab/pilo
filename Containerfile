@@ -2,7 +2,7 @@
 
 # ---- Builder Stage ----
 # This stage builds the Go application.
-FROM quay.io/fedora/fedora:42 AS builder
+FROM public.ecr.aws/docker/library/fedora:42 AS builder
 
 # Install build dependencies
 RUN dnf install -y \
@@ -48,19 +48,17 @@ RUN go mod download
 # Copy the rest of the application source code
 COPY . .
 
-# Build arguments for customization
-ARG APP_NAME=app
-ARG BINARY_PATH=bin/${APP_NAME}
-ARG MAIN_GO_PATH=./
+# --- Generic Build Arguments ---
+ARG APP_NAME="app"
+ARG MAIN_GO_PATH="./"
+ARG LDFLAGS_STRING=""
 
-ARG BUILD_VERSION=0.0.1
- 
-# Build the application
-RUN go build -ldflags="-X pilo/internal/cli.Version=${BUILD_VERSION}" -o ${BINARY_PATH} ${MAIN_GO_PATH}
+# Build the application using the generic arguments
+RUN go build -ldflags="${LDFLAGS_STRING}" -o "/app/build/${APP_NAME}" "${MAIN_GO_PATH}"
 
 # ---- Runner Stage ----
 # This stage creates the final, smaller image.
-FROM quay.io/fedora/fedora:42
+FROM public.ecr.aws/docker/library/fedora:42
 
 # Install only runtime dependencies
 RUN dnf install -y \
@@ -112,7 +110,7 @@ ARG BINARY_PATH=bin/${APP_NAME}
 ENV BINARY_PATH_ENV=${BINARY_PATH}
 
 # Copy the compiled binary from the builder stage
-COPY --from=builder /app/${BINARY_PATH} /usr/local/bin/${APP_NAME_ENV}
+COPY --from=builder "/app/build/${APP_NAME_ENV}" "/usr/local/bin/${APP_NAME_ENV}"
 RUN chmod +x /usr/local/bin/${APP_NAME_ENV}
 
 # Switch back to the appuser for the final runtime environment

@@ -105,7 +105,7 @@ The `flake.nix` is the central point of the NixOS configuration. Here's a breakd
 
 ## Usage
 
-This flake is managed by the `pilo` command-line tool. For detailed usage instructions, please refer to the main [README.md](../README.md).
+> **Note:** This flake is designed to be managed by the `pilo` command-line tool. For detailed usage instructions, please refer to the main [**Pilo repository**](https://github.com/stewlab/pilo).
 
 ## File Structure
 
