@@ -2,7 +2,7 @@
 
 # ---- Builder Stage ----
 # This stage builds the Go application.
-FROM quay.io/fedora/fedora:42 AS builder
+FROM public.ecr.aws/docker/library/fedora:42 AS builder
 
 # Install build dependencies
 RUN dnf install -y \
@@ -58,7 +58,7 @@ RUN go build -ldflags="${LDFLAGS_STRING}" -o "/app/build/${APP_NAME}" "${MAIN_GO
 
 # ---- Runner Stage ----
 # This stage creates the final, smaller image.
-FROM quay.io/fedora/fedora:42
+FROM public.ecr.aws/docker/library/fedora:42
 
 # Install only runtime dependencies
 RUN dnf install -y \

@@ -14,18 +14,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-        with:
-          # Fetch all history for all tags and branches so git describe works
-          fetch-depth: 0
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Podman
-        uses: redhat-actions/podman-login@v1
-        with:
-          registry: quay.io
-          # No username/password needed for public images
 
       - name: Get the version
         id: get_version
@@ -34,14 +22,19 @@ jobs:
       - name: Build application image
         run: ./container_build.sh build
 
-      - name: Extract Binary for Artifact Upload
+      - name: Extract binary and Upload Artifact
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
+          # Create a directory for the artifact
           mkdir -p artifacts
-          # Use podman cp to extract the binary directly from the image without running a container
-          podman cp $(podman create pilo-app:latest):/usr/local/bin/pilo ./artifacts/pilo-linux-amd64
+          
+          # Create a container from the newly built image, copy the binary out, and remove the container
+          # Note: We assume the container_build.sh script tags the image as 'pilo-app:latest'
+          CONTAINER_ID=$(docker create pilo-app:latest)
+          docker cp ${CONTAINER_ID}:/usr/local/bin/pilo ./artifacts/pilo-linux-amd64
+          docker rm ${CONTAINER_ID}
 
-      - name: Upload Artifact
+      - name: Upload artifact
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v4
         with:
