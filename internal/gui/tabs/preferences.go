@@ -19,13 +19,13 @@ import (
 type PreferencesTab struct {
 	CanvasObject fyne.CanvasObject
 
-	installPathEntry    *components.SafeEntry
-	registryNameEntry   *components.SafeEntry
-	remoteUrlEntry      *components.SafeEntry
-	remoteBranchEntry   *components.SafeEntry
-	pushOnCommitCheck   *widget.Check
-	systemEntry         *components.SafeEntry
-	usernameEntry       *components.SafeEntry
+	installPathEntry  *components.SafeEntry
+	registryNameEntry *components.SafeEntry
+	remoteUrlEntry    *components.SafeEntry
+	remoteBranchEntry *components.SafeEntry
+	pushOnCommitCheck *widget.Check
+	// systemEntry         *components.SafeEntry
+	// usernameEntry       *components.SafeEntry
 	nixpkgsEntry        *components.SafeEntry
 	homeManagerEntry    *components.SafeEntry
 	nixInstallCmdEntry  *components.SafeEntry
@@ -49,12 +49,12 @@ func (t *PreferencesTab) Refresh() {
 	if pushOnCommit, err := config.GetPushOnCommit(); err == nil {
 		t.pushOnCommitCheck.SetChecked(pushOnCommit)
 	}
-	if system, err := config.GetSystem(); err == nil {
-		t.systemEntry.SetText(system.Type)
-	}
-	if username, err := config.GetUsername(); err == nil {
-		t.usernameEntry.SetText(username)
-	}
+	// if system, err := config.GetSystem(); err == nil {
+	// 	t.systemEntry.SetText(system.Type)
+	// }
+	// if username, err := config.GetUsername(); err == nil {
+	// 	t.usernameEntry.SetText(username)
+	// }
 	t.nixpkgsEntry.SetText(config.GetNixpkgsUrl())
 	t.homeManagerEntry.SetText(config.GetHomeManagerUrl())
 	t.nixInstallCmdEntry.SetText(config.GetNixInstallCmd())
@@ -123,22 +123,22 @@ func CreatePreferencesTab(
 		}
 	})
 
-	// System and Username
-	tab.systemEntry = components.NewSafeEntry()
-	tab.systemEntry.OnChanged = func(s string) {
-		system, err := config.GetSystem()
-		if err != nil {
-			// Handle error, maybe show a dialog or log it
-			return
-		}
-		system.Type = s
-		config.SetSystem(system)
-	}
+	// // System and Username
+	// tab.systemEntry = components.NewSafeEntry()
+	// tab.systemEntry.OnChanged = func(s string) {
+	// 	system, err := config.GetSystem()
+	// 	if err != nil {
+	// 		// Handle error, maybe show a dialog or log it
+	// 		return
+	// 	}
+	// 	system.Type = s
+	// 	config.SetSystem(system)
+	// }
 
-	tab.usernameEntry = components.NewSafeEntry()
-	tab.usernameEntry.OnChanged = func(s string) {
-		config.SetUsername(s)
-	}
+	// tab.usernameEntry = components.NewSafeEntry()
+	// tab.usernameEntry.OnChanged = func(s string) {
+	// 	config.SetUsername(s)
+	// }
 
 	// Flake overrides
 	tab.nixpkgsEntry = components.NewSafeEntry()
@@ -207,13 +207,13 @@ func CreatePreferencesTab(
 		writeAccessWarning.Show()
 	}
 
-	// Load initial system and username
-	if system, err := config.GetSystem(); err == nil {
-		tab.systemEntry.SetText(system.Type)
-	}
-	if username, err := config.GetUsername(); err == nil {
-		tab.usernameEntry.SetText(username)
-	}
+	// // Load initial system and username
+	// if system, err := config.GetSystem(); err == nil {
+	// 	tab.systemEntry.SetText(system.Type)
+	// }
+	// if username, err := config.GetUsername(); err == nil {
+	// 	tab.usernameEntry.SetText(username)
+	// }
 	// Load initial remote URL and branch
 	if remoteURL, err := config.GetRemoteUrl(); err == nil {
 		tab.remoteUrlEntry.SetText(remoteURL)
@@ -238,8 +238,8 @@ func CreatePreferencesTab(
 	overrideForm := widget.NewForm(
 		widget.NewFormItem("Nixpkgs URL", tab.nixpkgsEntry),
 		widget.NewFormItem("Home Manager URL", tab.homeManagerEntry),
-		widget.NewFormItem("System", tab.systemEntry),
-		widget.NewFormItem("Username", tab.usernameEntry),
+		// widget.NewFormItem("System", tab.systemEntry),
+		// widget.NewFormItem("Username", tab.usernameEntry),
 	)
 
 	nixInstallButton := widget.NewButton("📥  Install Nix", func() {
@@ -515,9 +515,14 @@ func reinstall(
 			newConfig.System = existingConfig.System
 			newConfig.Packages = existingConfig.Packages
 			newConfig.Aliases = existingConfig.Aliases
+			newConfig.Users = existingConfig.Users
 			if err := config.WriteConfig(newConfig); err != nil {
 				return "", fmt.Errorf("error writing merged config: %w", err)
 			}
+		}
+
+		if err := api.ApplyBaseConfigDefaults(); err != nil {
+			return "", fmt.Errorf("error applying base config defaults: %w", err)
 		}
 
 		if nix.GetNixMode() == nix.NixOS && remoteURL == "" {
@@ -531,6 +536,7 @@ func reinstall(
 			return "", err
 		}
 		refreshPendingActions()
+		// refreshAllTabs()
 		return "Pilo configuration reinstalled successfully!", nil
 	}, "Reinstalling Pilo Configuration", true, func() {
 		refreshAllTabs()

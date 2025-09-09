@@ -12,7 +12,7 @@ import (
 )
 
 // BaseConfig defines the structure of the base-config.json file.
-type SystemConfig struct {
+type System struct {
 	Username string `json:"username"`
 	Desktop  string `json:"desktop"`
 	Type     string `json:"type"`
@@ -24,8 +24,9 @@ type Ollama struct {
 }
 
 type Package struct {
-	Name      string `json:"name"`
-	Installed bool   `json:"installed"`
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	Installed   bool   `json:"installed"`
 }
 
 type User struct {
@@ -41,8 +42,9 @@ type BaseConfig struct {
 	PushOnCommit   bool              `json:"push_on_commit"`
 	RemoteURL      string            `json:"remote_url"`
 	RemoteBranch   string            `json:"remote_branch"`
-	System         SystemConfig      `json:"system"`
+	System         System            `json:"system"`
 	Users          []User            `json:"users"`
+	NixBinPath     string            `json:"nix_bin_path"`
 }
 
 var App fyne.App
@@ -98,8 +100,7 @@ func ReadConfig() (*BaseConfig, error) {
 
 // writeDefaultConfig creates a default base-config.json file.
 func writeDefaultConfig(path string) error {
-	defaultConfig := []byte("{\n  \"commit_triggers\": [],\n  \"packages\": [],\n  \"aliases\": {},\n  \"remote_url\": \"\",\n  \"push_on_commit\": false\n}\n")
-	return os.WriteFile(path, defaultConfig, 0644)
+	return GenerateBaseConfig(path)
 }
 
 // WriteConfig marshals and writes the config to base-config.json, ensuring slices are sorted.
@@ -306,16 +307,16 @@ func SetRemoteBranch(branch string) error {
 }
 
 // GetSystem retrieves the system from the base config file.
-func GetSystem() (SystemConfig, error) {
+func GetSystem() (System, error) {
 	config, err := ReadConfig()
 	if err != nil {
-		return SystemConfig{}, err
+		return System{}, err
 	}
 	return config.System, nil
 }
 
 // SetSystem sets the system in the base config file.
-func SetSystem(system SystemConfig) error {
+func SetSystem(system System) error {
 	config, err := ReadConfig()
 	if err != nil {
 		return err
@@ -324,36 +325,53 @@ func SetSystem(system SystemConfig) error {
 	return WriteConfig(config)
 }
 
+// GetUsers retrieves the list of users from the base config file.
+func GetUsers() ([]User, error) {
+	config, err := ReadConfig()
+	if err != nil {
+		return nil, err
+	}
+	return config.Users, nil
+}
+
+// SetUsers sets the list of users in the base config file.
+func SetUsers(users []User) error {
+	config, err := ReadConfig()
+	if err != nil {
+		return err
+	}
+	config.Users = users
+	return WriteConfig(config)
+}
+
 // GetUsername retrieves the username from the base config file, or the system username if not set.
 func GetUsername() (string, error) {
 	config, err := ReadConfig()
 	if err != nil {
-		// If config file doesn't exist, try to get system username
+		// If config file doesn't exist, create a default one and retry.
 		if os.IsNotExist(err) {
-			currentUser, userErr := user.Current()
-			if userErr != nil {
-				return "", fmt.Errorf("could not get current user: %w", userErr)
+			if err := writeDefaultConfig(filepath.Join(GetInstallPath(), "flake", "base-config.json")); err != nil {
+				return "", err
 			}
-			// Set the system username in the config file for future use
-			if err := SetUsername(currentUser.Username); err != nil {
-				// Log or handle error, but proceed with the username
+			config, err = ReadConfig()
+			if err != nil {
+				return "", err
 			}
-			return currentUser.Username, nil
+		} else {
+			return "", err
 		}
-		return "", err
 	}
 
-	// If username is empty in config, try to get system username
+	// If username is empty in config, use system username and update the config.
 	if config.System.Username == "" {
-		currentUser, userErr := user.Current()
-		if userErr != nil {
-			return "", fmt.Errorf("could not get current user: %w", userErr)
+		currentUser, err := user.Current()
+		if err != nil {
+			return "", fmt.Errorf("could not get current user: %w", err)
 		}
-		// Set the system username in the config file for future use
-		if err := SetUsername(currentUser.Username); err != nil {
-			// Log or handle error, but proceed with the username
+		config.System.Username = currentUser.Username
+		if err := WriteConfig(config); err != nil {
+			// Log or handle error, but proceed with the username.
 		}
-		return currentUser.Username, nil
 	}
 
 	return config.System.Username, nil
@@ -371,6 +389,69 @@ func SetUsername(username string) error {
 	}
 
 	config.System.Username = username
+	return WriteConfig(config)
+}
+
+// GetType retrieves the system type from the base config file.
+func GetType() (string, error) {
+	config, err := ReadConfig()
+	if err != nil {
+		return "", err
+	}
+	if config.System.Type == "" {
+		return "x86_64-linux", nil
+	}
+	return config.System.Type, nil
+}
+
+// SetType sets the system type in the base config file.
+func SetType(systemType string) error {
+	config, err := ReadConfig()
+	if err != nil {
+		return err
+	}
+	config.System.Type = systemType
+	return WriteConfig(config)
+}
+
+// // GetUsers retrieves the list of users from the base config file.
+// func GetUsers() ([]User, error) {
+// 	config, err := ReadConfig()
+// 	if err != nil {
+// 		return nil, err
+// 	}
+// 	return config.Users, nil
+// }
+
+// // SetUsers sets the list of users in the base config file.
+// func SetUsers(users []User) error {
+// 	config, err := ReadConfig()
+// 	if err != nil {
+// 		return err
+// 	}
+// 	config.Users = users
+// 	return WriteConfig(config)
+// }
+
+// GetDesktop retrieves
+func GetDesktop() (string, error) {
+	config, err := ReadConfig()
+	if err != nil {
+		return "", err
+	}
+	if config.System.Desktop == "" {
+		return "plasma", nil
+	}
+	return config.System.Desktop, nil
+}
+
+// SetDesktop sets the desktop used in NixOS
+func SetDesktop(desktop string) error {
+	config, err := ReadConfig()
+	if err != nil {
+		return err
+	}
+	config.System.Desktop = desktop
 	return WriteConfig(config)
 }
 
@@ -444,4 +525,23 @@ func SetRegistryName(name string) {
 		return
 	}
 	App.Preferences().SetString("registryName", name)
+}
+
+// GetNixBinPath retrieves the Nix binary path from the base config file.
+func GetNixBinPath() (string, error) {
+	config, err := ReadConfig()
+	if err != nil {
+		return "", err
+	}
+	return config.NixBinPath, nil
+}
+
+// SetNixBinPath sets the Nix binary path in the base config file.
+func SetNixBinPath(path string) error {
+	config, err := ReadConfig()
+	if err != nil {
+		return err
+	}
+	config.NixBinPath = path
+	return WriteConfig(config)
 }

@@ -20,7 +20,7 @@ func (t *AliasesTab) Refresh() {
 	t.refreshAliases()
 }
 
-func CreateAliasesTab(runCmd func(func() error, string, bool, func()), w fyne.Window, refreshPendingActions func()) *AliasesTab {
+func CreateAliasesTab(runCmd func(func() error, string, bool, func()), window fyne.Window, refreshPendingActions func()) *AliasesTab {
 	aliasBinding := binding.NewUntypedList()
 	refreshAliases := func() {
 		aliases, err := api.GetAliases()
@@ -70,7 +70,7 @@ func CreateAliasesTab(runCmd func(func() error, string, bool, func()), w fyne.Wi
 						editCommandEntry := widget.NewEntry()
 						editCommandEntry.SetText(command)
 
-						dialogs.ShowForm(w, "Edit Alias", "💾  Save", "Cancel", []*widget.FormItem{
+						dialogs.ShowForm(window, "Edit Alias", "💾  Save", "Cancel", []*widget.FormItem{
 							widget.NewFormItem("Name", container.New(layout.NewGridWrapLayout(fyne.NewSize(300, editNameEntry.MinSize().Height)), editNameEntry)),
 							widget.NewFormItem("Command", container.New(layout.NewGridWrapLayout(fyne.NewSize(300, editCommandEntry.MinSize().Height)), editCommandEntry)),
 						}, func(b bool) {
@@ -93,7 +93,7 @@ func CreateAliasesTab(runCmd func(func() error, string, bool, func()), w fyne.Wi
 						})
 					}),
 					fyne.NewMenuItem("🗑️  Remove", func() {
-						dialogs.ShowConfirm(w, "Remove Alias", "Are you sure you want to remove alias "+name+"?", func(ok bool) {
+						dialogs.ShowConfirm(window, "Remove Alias", "Are you sure you want to remove alias "+name+"?", func(ok bool) {
 							if ok {
 								runCmd(func() error {
 									return api.RemoveAlias(name)
@@ -103,7 +103,7 @@ func CreateAliasesTab(runCmd func(func() error, string, bool, func()), w fyne.Wi
 							}
 						})
 					}))
-				widget.NewPopUpMenu(menu, w.Canvas()).ShowAtPosition(fyne.CurrentApp().Driver().AbsolutePositionForObject(button))
+				widget.NewPopUpMenu(menu, window.Canvas()).ShowAtPosition(fyne.CurrentApp().Driver().AbsolutePositionForObject(button))
 			}
 		},
 	)
@@ -114,7 +114,7 @@ func CreateAliasesTab(runCmd func(func() error, string, bool, func()), w fyne.Wi
 		addCommandEntry := widget.NewEntry()
 		addCommandEntry.SetPlaceHolder("Enter command")
 
-		dialogs.ShowForm(w, "Add Alias", "Add", "Cancel", []*widget.FormItem{
+		dialogs.ShowForm(window, "Add Alias", "Add", "Cancel", []*widget.FormItem{
 			widget.NewFormItem("Name", container.New(layout.NewGridWrapLayout(fyne.NewSize(300, addNameEntry.MinSize().Height)), addNameEntry)),
 			widget.NewFormItem("Command", container.New(layout.NewGridWrapLayout(fyne.NewSize(300, addCommandEntry.MinSize().Height)), addCommandEntry)),
 		}, func(b bool) {

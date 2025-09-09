@@ -64,13 +64,14 @@ func CreatePackagesTab(runCmd func(func() error, string, bool, func()), a fyne.A
 		},
 		func(i binding.DataItem, o fyne.CanvasObject) {
 			untyped, _ := i.(binding.Untyped).Get()
-			pkg := untyped.(api.Package)
+			pkg := untyped.(config.Package)
 			label := o.(*fyne.Container).Objects[0].(*widget.Label)
-			if !pkg.Installed {
-				label.SetText(pkg.Name + " (pending)")
-			} else {
-				label.SetText(pkg.Name)
-			}
+			// if !pkg.Installed {
+			// 	label.SetText(pkg.Name + " (pending)")
+			// } else {
+			// 	label.SetText(pkg.Name)
+			// }
+			label.SetText(pkg.Name)
 			removeButton := o.(*fyne.Container).Objects[1].(*widget.Button)
 			removeButton.OnTapped = func() {
 				dialogs.ShowConfirm(w, "Remove Package", "Are you sure you want to remove "+pkg.Name+"?", func(ok bool) {
@@ -109,7 +110,7 @@ func CreatePackagesTab(runCmd func(func() error, string, bool, func()), a fyne.A
 				fyne.LogError("Error getting from binding", err)
 				return
 			}
-			pkg := item.(api.Package)
+			pkg := item.(config.Package)
 			container := o.(*fyne.Container)
 			label := container.Objects[0].(*widget.Label)
 			label.SetText(pkg.Name + " - " + pkg.Description)

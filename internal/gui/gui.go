@@ -36,7 +36,8 @@ func run() {
 	w.CenterOnScreen()
 
 	// Handle auto-installation if the config path doesn't exist
-	handleAutoInstall(w)
+	configEditorTabContent := tabs.CreateConfigEditorTab(w)
+	handleAutoInstall(w, configEditorTabContent)
 
 	if nix.GetNixMode() == nix.None {
 		dialog.NewInformation("Nix Not Found", "Nix is not installed. Please install it from the preferences tab for full functionality.", w).Show()
@@ -161,19 +162,27 @@ func run() {
 		dialogs.ShowPasswordDialog(w, onConfirm)
 	}, w, appTabs, refreshPendingActions, gitStatusBinding, refreshTabs)
 
-	configEditorTabContent := tabs.CreateConfigEditorTab(w)
+	usersTabContent := tabs.CreateUsersTab(func(f func() error, msg string, showOutput bool, refreshFunc func()) {
+		runCmd(func() (string, error) {
+			err := f()
+			return "", err
+		}, msg, showOutput, refreshFunc)
+	}, w, refreshPendingActions)
+
 	preferencesTab := container.NewTabItem("Preferences", preferencesTabContent.CanvasObject)
 	systemTab := container.NewTabItem("System", systemTabContent.CanvasObject)
 	packagesTab := container.NewTabItem("Packages", packagesTabContent.CanvasObject)
 	devshellsTab := container.NewTabItem("Devshells", devshellsTabContent.CanvasObject)
 	aliasesTab := container.NewTabItem("Aliases", aliasesTabContent.CanvasObject)
 	configEditorTab := container.NewTabItem("Config Editor", configEditorTabContent.CanvasObject)
+	usersTab := container.NewTabItem("Users", usersTabContent.CanvasObject)
 
 	appTabs.SetItems([]*container.TabItem{
 		systemTab,
 		packagesTab,
 		devshellsTab,
 		aliasesTab,
+		usersTab,
 		configEditorTab,
 		preferencesTab,
 	})
@@ -242,7 +251,7 @@ func Refresh() {
 	}
 }
 
-func handleAutoInstall(w fyne.Window) {
+func handleAutoInstall(w fyne.Window, configEditorTab *tabs.ConfigEditorTab) {
 	installPath := config.GetInstallPath()
 	if _, err := os.Stat(installPath); os.IsNotExist(err) {
 		dialog.NewInformation(
@@ -257,7 +266,7 @@ func handleAutoInstall(w fyne.Window) {
 					dialog.NewError(fmt.Errorf("failed to install Pilo configuration: %w", err), w).Show()
 				} else {
 					dialog.NewInformation("Installation Complete", "Pilo has been installed successfully.", w).Show()
-					w.Content().Refresh()
+					configEditorTab.Refresh()
 				}
 			})
 		}()

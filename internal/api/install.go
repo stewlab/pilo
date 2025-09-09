@@ -56,8 +56,13 @@ func InstallPilo(path string, registry string, remoteURL string) error {
 	if err := GitInit(path); err != nil {
 		return fmt.Errorf("error initializing git repository: %w", err)
 	}
+
 	if err := Inflate(path, remoteURL, false); err != nil {
 		return fmt.Errorf("error inflating pilo flake: %w", err)
+	}
+
+	if err := ApplyBaseConfigDefaults(); err != nil {
+		return err
 	}
 
 	// If on NixOS, copy the system's configuration files.
@@ -72,6 +77,68 @@ func InstallPilo(path string, registry string, remoteURL string) error {
 		if err := InstallConfig(path, registry, ""); err != nil {
 			return fmt.Errorf("error installing configuration: %w", err)
 		}
+	}
+
+	return nil
+}
+
+// ApplyBaseConfigDefaults reads the base-config.json, applies default values,
+// validates the configuration, and writes it back to the file.
+func ApplyBaseConfigDefaults() error {
+	conf, err := config.ReadConfig()
+	if err != nil {
+		return fmt.Errorf("error reading config: %w", err)
+	}
+
+	// Set default values if they are not already set
+	if conf.System.Username == "" {
+		username, err := config.GetUsername()
+		if err != nil {
+			return fmt.Errorf("error getting username: %w", err)
+		}
+		conf.System.Username = username
+	}
+	if conf.System.Desktop == "" {
+		desktop, err := config.GetDesktop()
+		if err != nil {
+			return fmt.Errorf("error getting desktop: %w", err)
+		}
+		conf.System.Desktop = desktop
+	}
+	if conf.System.Type == "" {
+		systemType, err := config.GetType()
+		if err != nil {
+			return fmt.Errorf("error getting system type: %w", err)
+		}
+		conf.System.Type = systemType
+	}
+
+	// Validate that at least one username matches system.username
+	userMatch := false
+	for _, user := range conf.Users {
+		if user.Username == conf.System.Username {
+			userMatch = true
+			break
+		}
+	}
+
+	// Validate users array
+	if !userMatch || len(conf.Users) == 0 {
+		// return fmt.Errorf("the 'users' array in base-config.json cannot be empty")
+		conf.Users = append(conf.Users, config.User{
+			Username: conf.System.Username,
+			Email:    fmt.Sprintf("%s@pilo", conf.System.Username),
+			Name:     conf.System.Username,
+		})
+	}
+
+	// if !userMatch {
+	// 	return fmt.Errorf("at least one user in base-config.json must match the system username ('%s')", conf.System.Username)
+	// }
+
+	// Write the updated config back to the file
+	if err := config.WriteConfig(conf); err != nil {
+		return fmt.Errorf("error writing updated config: %w", err)
 	}
 
 	return nil

@@ -116,7 +116,6 @@ Pilo is configured through the `base-config.json` file, located in `~/.config/pi
 
 ## Development
 
-### Via Nix (for Nix Systems)
 
 First, clone the repository:
 
@@ -125,7 +124,9 @@ git clone https://github.com/stewlab/pilo.git
 cd pilo
 ```
 
-Then, to build the `pilo` application, run the following command:
+### Via Nix devShell
+
+To build the `pilo` application using the included [Go](https://go.dev/) devShell, run the following command:
 
 ```bash
 nix develop ./flake#go --command go build -o bin/pilo .
@@ -133,7 +134,7 @@ nix develop ./flake#go --command go build -o bin/pilo .
 
 This command enters a Nix development shell that has Go installed, and then it builds the Pilo binary, placing it in the `bin` directory.
 
-### Via Containers (for Non-Nix Systems)
+### Via Container
 
 This is managed via the `container_build.sh` script, which automates building and running the application in a container.
 

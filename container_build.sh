@@ -28,7 +28,7 @@ echo "Using container engine: $CONTAINER_CMD"
 # --- Functions ---
 
 usage() {
-  echo "Usage: $0 [start-dev|stop-dev|shell-dev|run-dev|build|run|rebuild-dev|rebuild-app] [app_args...]"
+  echo "Usage: $0 [start-dev|stop-dev|shell-dev|run-dev|build|run|rebuild-dev|rebuild-app|build-artifact] [app_args...]"
   echo "Development Commands:"
   echo "  start-dev    : Start the persistent development container."
   echo "  stop-dev     : Stop and remove the persistent development container."
@@ -40,6 +40,7 @@ usage() {
   echo "  build        : Build the final application image."
   echo "  run          : Run the final application image."
   echo "  rebuild-app  : Force rebuild of the application image."
+  echo "  build-artifact: Build the application binary and place it in the artifacts directory."
   exit 1
 }
 
@@ -173,6 +174,41 @@ run_app() {
   $CONTAINER_CMD run "${opts[@]}" "${APP_IMAGE_NAME}" "$@"
 }
 
+build_artifact_binary() {
+    local tool_image_name="${APP_IMAGE_NAME}-builder-tool"
+    local build_version
+    build_version=$(git describe --tags --always --dirty 2>/dev/null || echo "0.0.1")
+    local ldflags="-X pilo/internal/cli.Version=${build_version}"
+
+    echo "Building builder tool image..."
+    $CONTAINER_CMD build \
+        --target builder \
+        --build-arg TOOL=true \
+        --build-arg APP_NAME="${FINAL_BINARY_NAME}" \
+        --build-arg MAIN_GO_PATH="${MAIN_GO_PATH}" \
+        --build-arg LDFLAGS_STRING="${ldflags}" \
+        -t "${tool_image_name}" \
+        -f Containerfile .
+
+    echo "Creating and starting temporary container..."
+    local container_id
+    container_id=$($CONTAINER_CMD run -d "${tool_image_name}" sleep infinity)
+
+    echo "Building binary in container..."
+    # The go build command is now run inside the running container
+    $CONTAINER_CMD exec "${container_id}" go build -ldflags="${ldflags}" -o "/app/build/${FINAL_BINARY_NAME}" "${MAIN_GO_PATH}"
+
+
+    echo "Copying binary from container..."
+    mkdir -p artifacts
+    $CONTAINER_CMD cp "${container_id}:/app/build/${FINAL_BINARY_NAME}" "./artifacts/${FINAL_BINARY_NAME}-linux-amd64"
+
+    echo "Stopping and removing temporary container..."
+    $CONTAINER_CMD rm -f "${container_id}"
+
+    echo "Binary created at ./artifacts/${FINAL_BINARY_NAME}-linux-amd64"
+}
+
 # --- Main Logic ---
 COMMAND="shell-dev"
 if [[ $# -gt 0 ]]; then
@@ -211,6 +247,9 @@ case "$COMMAND" in
       build_app_image "" "" "pilo-app:latest"
     fi
     run_app "$@"
+    ;;
+  build-artifact)
+    build_artifact_binary
     ;;
   *)
     usage
