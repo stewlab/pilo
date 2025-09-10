@@ -12,7 +12,7 @@ let
   appNames = builtins.attrNames self.apps.${pkgs.system};
 
   # Read config from JSON. This makes packages manageable via the pilo API.
-  config = builtins.fromJSON (builtins.readFile ../base-config.json);
+  config = builtins.fromJSON (builtins.readFile ../packages.json);
 
   # Get package names from the JSON, filtering for installed packages.
   packageNames = map (pkg: pkg.name) (builtins.filter (pkg: pkg.installed) config.packages);

@@ -2,7 +2,7 @@
 
 let
   # Import the base configuration from the JSON file
-  baseConfig = builtins.fromJSON (builtins.readFile ../base-config.json);
+  usersConfig = builtins.fromJSON (builtins.readFile ../users.json);
 
   # Function to generate a home-manager configuration for a given user
   mkUser = user: {
@@ -37,7 +37,7 @@ let
   users = lib.listToAttrs (map (user: {
     name = user.username;
     value = mkUser user;
-  }) baseConfig.users);
+  }) usersConfig.users);
 
 in
 {

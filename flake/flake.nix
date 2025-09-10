@@ -14,7 +14,11 @@
   outputs = { self, nixpkgs, home-manager, nixpkgs-unstable, ... } @ inputs:
     let
       # Read dynamic inputs from the JSON file
-      config = builtins.fromJSON (builtins.readFile ./base-config.json);
+      baseConfig = builtins.fromJSON (builtins.readFile ./base-config.json);
+      packagesConfig = builtins.fromJSON (builtins.readFile ./packages.json);
+      aliasesConfig = builtins.fromJSON (builtins.readFile ./aliases.json);
+      usersConfig = builtins.fromJSON (builtins.readFile ./users.json);
+      config = baseConfig // packagesConfig // aliasesConfig // usersConfig;
       system = lib.attrByPath [ "system" "type" ] "x86_64-linux" config;
       username = let
         raw = lib.attrByPath [ "system" "username" ] "" config;

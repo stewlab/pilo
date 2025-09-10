@@ -4,6 +4,7 @@ import (
 	"pilo/internal/api"
 	"pilo/internal/config"
 	"pilo/internal/dialogs" // New import
+	"pilo/internal/gui/components"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
@@ -13,6 +14,9 @@ import (
 
 type SystemTab struct {
 	fyne.CanvasObject
+	systemEntry           *components.SafeEntry
+	usernameEntry         *components.SafeEntry
+	desktopEntry          *components.SafeEntry
 	refreshPendingActions func()
 }
 
@@ -28,6 +32,11 @@ func CreateSystemTab(
 	w fyne.Window, // Add w here
 	refreshPendingActions func(),
 ) *SystemTab {
+
+	tab := &SystemTab{
+		refreshPendingActions: refreshPendingActions,
+	}
+
 	rebuildButton := widget.NewButton("🚀  Commit & Rebuild", func() {
 		dialogs.ShowPasswordDialog(w, func(password string) {
 			runCmd(func() (string, error) {
@@ -165,13 +174,56 @@ func CreateSystemTab(
 		},
 	)
 
-	refreshPendingActions()
+	// System
+	tab.systemEntry = components.NewSafeEntry()
+	tab.systemEntry.SetPlaceHolder("System type (e.g., x86_64-linux, aarch64-darwin")
+	tab.systemEntry.OnChanged = func(s string) {
+		system, err := config.GetSystem()
+		if err != nil {
+			// Handle error, maybe show a dialog or log it
+			return
+		}
+		system.Type = s
+		config.SetSystem(system)
+	}
+
+	tab.usernameEntry = components.NewSafeEntry()
+	tab.usernameEntry.SetPlaceHolder("Primary Nix user")
+	tab.usernameEntry.OnChanged = func(s string) {
+		config.SetUsername(s)
+	}
+
+	tab.desktopEntry = components.NewSafeEntry()
+	tab.desktopEntry.SetPlaceHolder("Desktop environment (e.g., plasma, gnome)")
+	tab.desktopEntry.OnChanged = func(s string) {
+		config.SetDesktop(s)
+	}
+
+	// Load initial system info
+	if system, err := config.GetSystem(); err == nil {
+		tab.systemEntry.SetText(system.Type)
+	}
+
+	if username, err := config.GetUsername(); err == nil {
+		tab.usernameEntry.SetText(username)
+	}
+
+	if desktop, err := config.GetDesktop(); err == nil {
+		tab.desktopEntry.SetText(desktop)
+	}
+
+	systetmForm := widget.NewForm(
+		widget.NewFormItem("System", tab.systemEntry),
+		widget.NewFormItem("Desktop", tab.desktopEntry),
+		widget.NewFormItem("Username", tab.usernameEntry),
+	)
 
 	topContent := container.NewVBox(
 		widget.NewLabelWithStyle("System Actions", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
 		actions,
 		widget.NewSeparator(),
 		widget.NewLabelWithStyle("Pending Actions", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		systetmForm,
 	)
 
 	content := container.NewBorder(
@@ -182,10 +234,9 @@ func CreateSystemTab(
 		pendingActionsList,
 	)
 
-	tab := &SystemTab{
-		CanvasObject:          container.NewPadded(content),
-		refreshPendingActions: refreshPendingActions,
-	}
+	tab.CanvasObject = container.NewPadded(content)
+
+	refreshPendingActions()
 
 	go func() {
 		dirty, err := api.GitStatus(config.GetInstallPath())

@@ -1,0 +1,5 @@
+{
+  "..": "cd ..",
+  "gs": "git status",
+  "ll": "ls -alF"
+}

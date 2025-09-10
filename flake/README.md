@@ -105,11 +105,21 @@ The `flake.nix` is the central point of the NixOS configuration. Here's a breakd
 
 ## Usage
 
-> **Note:** This flake is designed to be managed by the `pilo` command-line tool. For detailed usage instructions, please refer to the main [**Pilo repository**](https://github.com/stewlab/pilo).
+> **Note:** This flake is designed to be managed by the `pilo` command-line tool. For detailed usage instructions, please refer to the main [**Pilo README**](../README.md).
 
 ## File Structure
 
--   `flake.nix`: The entry point for the flake. It defines the system configuration, Home Manager setup, and helper apps.
--   `hosts/nixos/`: Contains the main configuration files for the NixOS system.
--   `users/`: Contains user-specific configurations managed by Home Manager.
--   `devshells/`: Contains definitions for persistent development shells.
+-   `flake.nix`: The main flake file that defines the NixOS and Home Manager configurations.
+-   `base-config.json`: A JSON file for base system configurations like username, system, and desktop environment.
+-   `inputs.nix`: Defines the flake inputs, such as nixpkgs and home-manager.
+-   `install.sh`: A script for installing the flake on a new system.
+-   `aliases.json`: Manages shell aliases for users.
+-   `packages.json`: Manages additional packages to be installed.
+-   `users.json`: Manages user accounts and their configurations.
+-   `apps/`: Contains definitions for flake applications.
+-   `desktops/`: Contains desktop environment-specific configurations (e.g., GNOME, Plasma).
+-   `devshells/`: Contains definitions for development shells.
+-   `hosts/`: Contains host-specific configurations.
+-   `packages/`: Contains custom package definitions.
+-   `scripts/`: Contains various helper scripts.
+-   `users/`: Contains user-specific Home Manager configurations.

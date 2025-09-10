@@ -46,6 +46,7 @@ When you run `pilo` for the first time, it will automatically create the necessa
 -   `pilo list [packages|generations]`: Lists installed packages or system generations.
 -   `pilo backup`: Creates a backup of the current Pilo configuration.
 -   `pilo restore`: Restores the Pilo configuration from a remote Git repository.
+-   `pilo config set-nix-path [path]`: Sets the path to the Nix binary.
 
 ### Package Management
 
@@ -57,24 +58,26 @@ When you run `pilo` for the first time, it will automatically create the necessa
 
 ### Development Shells
 
-Pilo offers two types of development shells: temporary, on-the-fly shells and persistent, project-specific shells defined in your flake.
+-   `pilo shell [pkg...]`: Creates a temporary, ephemeral shell with the specified packages.
+-   `pilo develop [shell]`: Enters a persistent development shell defined in your flake.
+-   `pilo devshell add [name]`: Adds a new development shell definition.
+-   `pilo devshell remove [name]`: Removes an existing development shell definition.
+-   `pilo devshell enter [name]`: Enters the specified development shell.
+-   `pilo devshell run [name] [command]`: Executes a command within the specified development shell.
 
--   **`pilo shell [pkg...]`**: This command creates a temporary, ephemeral shell with the specified packages. It is useful for quick tasks or trying out new tools without modifying your system configuration. The shell and its packages are gone once you exit.
+### User Management
 
--   **`pilo develop [shell]`**: This is the primary command for entering a persistent development shell defined in your flake. It serves as a convenient, high-level wrapper around `nix develop`.
+-   `pilo users list`: Lists all configured users.
+-   `pilo users add [username] [name] [email]`: Adds a new user.
+-   `pilo users remove [username]`: Removes a user.
+-   `pilo users update [old_username] [new_username] [name] [email]`: Updates a user's information.
 
-#### Managing Persistent Devshells
+### Alias Management
 
-The `pilo devshell` command provides a suite of tools for managing your development shells. While `pilo develop` is for *using* shells, `pilo devshell` is for *managing* them.
-
--   **`pilo devshell add [name]`**: Adds a new, empty development shell definition to your `flake/devshells/` directory.
--   **`pilo devshell remove [name]`**: Removes an existing development shell definition.
--   **`pilo devshell enter [name]`**: Enters the specified development shell. While its outcome is similar to `pilo develop`, it exists within the `devshell` subcommand for a consistent management workflow (e.g., add a shell, then immediately enter it).
--   **`pilo devshell run [name] [command]`**: Executes a single command within the context of the specified development shell without entering it interactively.
-
-**Important Note on Configuration Changes**:
-
-Any changes made to your `base-config.json` or your flake files (including adding or removing development shells) will **not** take effect until you run `pilo rebuild`. This command applies your changes to the system's Nix configuration, making them available for use.
+-   `pilo aliases add [name] [command]`: Adds a new alias.
+-   `pilo aliases remove [name]`: Removes an alias.
+-   `pilo aliases update [old_name] [new_name] [command]`: Updates an alias.
+-   `pilo aliases duplicate [name] [command]`: Duplicates an alias.
 
 ### GUI
 
@@ -88,35 +91,30 @@ Any changes made to your `base-config.json` or your flake files (including addin
 
 Pilo is configured through the `base-config.json` file, located in `~/.config/pilo/flake/`. This file allows you to customize your Nix environment. Below is a detailed breakdown of the available options.
 
--   **`commit_triggers`** (array of strings): A list of keywords that, when present in a commit message, will trigger a `pilo rebuild`. This is useful for automating system updates when you commit changes to your configuration.
-
--   **`packages`** (array of objects): A list of packages to be installed. Each object has two keys:
-    -   `name` (string): The name of the package from `nixpkgs`.
-    -   `installed` (boolean): Whether the package should be installed.
-
--   **`aliases`** (object): A map of custom shell aliases. The key is the alias name and the value is the command it should execute.
-
+-   **`commit_triggers`** (array of strings): A list of keywords that, when present in a commit message, will trigger a `pilo rebuild`.
+-   **`packages`** (array of objects): A list of packages to be installed.
+-   **`aliases`** (object): A map of custom shell aliases.
 -   **`push_on_commit`** (boolean): If `true`, `pilo` will automatically push your configuration to the remote Git repository after each commit.
-
 -   **`remote_url`** (string): The URL of the remote Git repository where your Pilo configuration is stored.
-
 -   **`remote_branch`** (string): The default branch to use for the remote repository.
-
 -   **`system`** (object): Contains system-specific settings:
     -   `username` (string): The primary username for the system.
     -   `desktop` (string): The desktop environment to use (e.g., `"gnome"`, `"plasma"`).
     -   `type` (string): The type of Nix installation (`"nixos"`, `"home-manager"`).
     -   `ollama` (object): Configuration for Ollama models.
-        -   `models` (string): A comma-separated list of Ollama models to install.
+-   **`users`** (array of objects): A list of users to be configured by Home Manager.
 
--   **`users`** (array of objects): A list of users to be configured by Home Manager. Each object contains:
-    -   `username` (string): The username of the user.
-    -   `email` (string): The user's email address for Git configuration.
-    -   `name` (string): The user's full name for Git configuration.
+## File Structure
+
+-   `flake/`: Contains the Nix flake and its related configurations. See the [flake/README.md](flake/README.md) for more details.
+-   `cmd/`: Contains the main application code.
+-   `internal/`: Contains internal packages and libraries used by the application.
+-   `main.go`: The entry point for the application.
+-   `go.mod` and `go.sum`: Go module files for managing dependencies.
+-   `Containerfile`: A file for building the application container.
+-   `container_build.sh`: A script for building and managing the application container.
 
 ## Development
-
-### Via Nix (for Nix Systems)
 
 First, clone the repository:
 
@@ -125,7 +123,9 @@ git clone https://github.com/stewlab/pilo.git
 cd pilo
 ```
 
-Then, to build the `pilo` application, run the following command:
+### Via Nix devShell
+
+To build the `pilo` application using the included [Go](https://go.dev/) devShell, run the following command:
 
 ```bash
 nix develop ./flake#go --command go build -o bin/pilo .
@@ -133,7 +133,7 @@ nix develop ./flake#go --command go build -o bin/pilo .
 
 This command enters a Nix development shell that has Go installed, and then it builds the Pilo binary, placing it in the `bin` directory.
 
-### Via Containers (for Non-Nix Systems)
+### Via Container
 
 This is managed via the `container_build.sh` script, which automates building and running the application in a container.
 
@@ -170,20 +170,20 @@ Any arguments passed after `run` will be forwarded to the Pilo application insid
 
 The script also provides commands to streamline development:
 
--   `./container_build.sh start-dev`: Starts a persistent development container in the background. Your project directory is mounted into the container, so changes are reflected live.
+-   `./container_build.sh start-dev`: Starts a persistent development container in the background.
 -   `./container_build.sh shell-dev`: Opens an interactive shell inside the running development container.
--   `./container_build.sh run-dev`: Compiles and runs your application inside the development container. This is ideal for quick testing without rebuilding the image.
+-   `./container_build.sh run-dev`: Compiles and runs your application inside the development container.
 -   `./container_build.sh stop-dev`: Stops and removes the development container.
 
 #### Reusing the Containerfile for Other Go Applications
 
-The `Containerfile` in this project is designed to be generic and can be used to build other Go applications with minimal changes. The `builder` stage is parameterized using build arguments (`ARG`).
+The `Containerfile` in this project is designed to be generic and can be used to build other Go applications with minimal changes.
 
 To build a different Go application, you can pass the following arguments to the `podman build` or `docker build` command:
 
 -   `APP_NAME`: The desired name for the final binary.
--   `MAIN_GO_PATH`: The path to the package containing the `main.go` file (e.g., `./cmd/my-other-app`).
--   `LDFLAGS_STRING`: A string of linker flags, typically used for injecting version information (e.g., `-X main.Version=1.0.0`).
+-   `MAIN_GO_PATH`: The path to the package containing the `main.go` file.
+-   `LDFLAGS_STRING`: A string of linker flags, typically used for injecting version information.
 
 Example command:
 
@@ -194,4 +194,3 @@ podman build \
   --build-arg LDFLAGS_STRING="-X main.Version=1.0.0" \
   -t my-other-app-image \
   -f Containerfile .
-```

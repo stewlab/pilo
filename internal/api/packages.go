@@ -3,93 +3,31 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
 	"pilo/internal/config"
 	"pilo/internal/nix"
 	"strings"
 )
 
-const configPath = "flake/base-config.json"
-
-// Package represents a Nix package.
-type Package struct {
-	Name        string `json:"name"`
-	Description string `json:"description,omitempty"`
-	Installed   bool   `json:"installed"`
-}
-
-type SystemConfig struct {
-	Username string `json:"username"`
-	Desktop  string `json:"desktop"`
-	Type     string `json:"type"`
-	Ollama   struct {
-		Models string `json:"models"`
-	} `json:"ollama"`
-}
-
-type Config struct {
-	Aliases        map[string]string `json:"aliases"`
-	CommitTriggers []string          `json:"commit_triggers"`
-	Packages       []Package         `json:"packages"`
-	PushOnCommit   bool              `json:"push_on_commit"`
-	RemoteBranch   string            `json:"remote_branch"`
-	RemoteURL      string            `json:"remote_url"`
-	System         SystemConfig      `json:"system"`
-}
-
-func readConfig() (*Config, error) {
-	installPath := config.GetInstallPath()
-	path := filepath.Join(installPath, configPath)
-
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read config file: %w", err)
-	}
-
-	var cfg Config
-	if err := json.Unmarshal(data, &cfg); err != nil {
-		return nil, fmt.Errorf("failed to parse config file: %w", err)
-	}
-	return &cfg, nil
-}
-
-func writeConfig(cfg *Config) error {
-	installPath := config.GetInstallPath()
-	path := filepath.Join(installPath, configPath)
-
-	data, err := json.MarshalIndent(cfg, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal config: %w", err)
-	}
-
-	return os.WriteFile(path, data, 0644)
-}
-
-func GetInstalledPackages() ([]Package, error) {
-	cfg, err := readConfig()
-	if err != nil {
-		return nil, err
-	}
-	return cfg.Packages, nil
+func GetInstalledPackages() ([]config.Package, error) {
+	return config.ReadPackagesConfig()
 }
 
 func AddPackage(packageName string) error {
-	cfg, err := readConfig()
+	packages, err := config.ReadPackagesConfig()
 	if err != nil {
 		return err
 	}
 
-	for _, pkg := range cfg.Packages {
+	for _, pkg := range packages {
 		if pkg.Name == packageName {
 			return fmt.Errorf("package '%s' already exists", packageName)
 		}
 	}
 
-	newPackage := Package{Name: packageName, Installed: false}
-	cfg.Packages = append(cfg.Packages, newPackage)
+	newPackage := config.Package{Name: packageName, Installed: true}
+	packages = append(packages, newPackage)
 
-	if err := writeConfig(cfg); err != nil {
+	if err := config.WritePackagesConfig(packages); err != nil {
 		return err
 	}
 
@@ -97,14 +35,14 @@ func AddPackage(packageName string) error {
 }
 
 func RemovePackage(packageName string) error {
-	cfg, err := readConfig()
+	packages, err := config.ReadPackagesConfig()
 	if err != nil {
 		return err
 	}
 
-	var newPackages []Package
+	var newPackages []config.Package
 	found := false
-	for _, pkg := range cfg.Packages {
+	for _, pkg := range packages {
 		if pkg.Name == packageName {
 			found = true
 		} else {
@@ -116,8 +54,7 @@ func RemovePackage(packageName string) error {
 		return fmt.Errorf("package '%s' not found", packageName)
 	}
 
-	cfg.Packages = newPackages
-	if err := writeConfig(cfg); err != nil {
+	if err := config.WritePackagesConfig(newPackages); err != nil {
 		return err
 	}
 
@@ -136,7 +73,7 @@ func AddGitPackage(url string) error {
 }
 
 // Search searches for packages in nixpkgs.
-func Search(query []string, sortByPopularity bool, freeOnly bool) ([]Package, error) {
+func Search(query []string, sortByPopularity bool, freeOnly bool) ([]config.Package, error) {
 	searchArgs := []string{"search", "nixpkgs", "--json"}
 	searchArgs = append(searchArgs, query...)
 	out, err := nix.RunCommand("nix", searchArgs...)
@@ -159,9 +96,9 @@ func Search(query []string, sortByPopularity bool, freeOnly bool) ([]Package, er
 		return nil, fmt.Errorf("error unmarshaling search results: %w", err)
 	}
 
-	var packages []Package
+	var packages []config.Package
 	for _, result := range results {
-		packages = append(packages, Package{
+		packages = append(packages, config.Package{
 			Name:        result.Pname,
 			Description: result.Description,
 		})

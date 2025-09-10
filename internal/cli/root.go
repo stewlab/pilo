@@ -33,6 +33,35 @@ With Pilo, you can perform tasks such as system rebuilds, package installations,
 	}
 )
 
+var configCmd = &cobra.Command{
+	Use:   "config",
+	Short: "Manage Pilo configuration.",
+	Long:  `The config command allows you to view and edit Pilo configuration settings.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		cmd.Help()
+	},
+}
+
+var setNixPathCmd = &cobra.Command{
+	Use:   "set-nix-path [path]",
+	Short: "Set the path to the Nix binary.",
+	Long:  `This command sets the path to the Nix binary, which is used by Pilo to execute Nix commands.`,
+	Args:  cobra.ExactArgs(1),
+	Run: func(cmd *cobra.Command, args []string) {
+		path := args[0]
+		if err := config.SetNixBinPath(path); err != nil {
+			fmt.Printf("Error setting Nix binary path: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Nix binary path set to: %s\n", path)
+	},
+}
+
+func init() {
+	configCmd.AddCommand(setNixPathCmd)
+	rootCmd.AddCommand(configCmd)
+}
+
 func Execute(flakeFS embed.FS, version string) {
 	rootCmd.Version = version
 	api.SetFlakeFS(flakeFS)

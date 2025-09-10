@@ -4,6 +4,7 @@
 /.go/
 /result
 /pilo
+/artifacts
 
 # Go vendor directory
 vendor/

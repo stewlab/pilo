@@ -52,9 +52,13 @@ COPY . .
 ARG APP_NAME="app"
 ARG MAIN_GO_PATH="./"
 ARG LDFLAGS_STRING=""
+ARG TOOL="false"
 
 # Build the application using the generic arguments
 RUN go build -ldflags="${LDFLAGS_STRING}" -o "/app/build/${APP_NAME}" "${MAIN_GO_PATH}"
+
+# Add a conditional command to keep the container running if TOOL=true
+CMD /bin/sh -c "if [ \"${TOOL}\" = \"true\" ]; then sleep infinity; else exec /usr/local/bin/${APP_NAME_ENV}; fi"
 
 # ---- Runner Stage ----
 # This stage creates the final, smaller image.
