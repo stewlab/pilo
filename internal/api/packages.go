@@ -3,69 +3,31 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
 	"pilo/internal/config"
 	"pilo/internal/nix"
 	"strings"
 )
 
-const configPath = "flake/base-config.json"
-
-// Package represents a Nix package.
-
-func readConfig() (*config.BaseConfig, error) {
-	installPath := config.GetInstallPath()
-	path := filepath.Join(installPath, configPath)
-
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read config file: %w", err)
-	}
-
-	var cfg config.BaseConfig
-	if err := json.Unmarshal(data, &cfg); err != nil {
-		return nil, fmt.Errorf("failed to parse config file: %w", err)
-	}
-	return &cfg, nil
-}
-
-func writeConfig(cfg *config.BaseConfig) error {
-	installPath := config.GetInstallPath()
-	path := filepath.Join(installPath, configPath)
-
-	data, err := json.MarshalIndent(cfg, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal config: %w", err)
-	}
-
-	return os.WriteFile(path, data, 0644)
-}
-
 func GetInstalledPackages() ([]config.Package, error) {
-	cfg, err := readConfig()
-	if err != nil {
-		return nil, err
-	}
-	return cfg.Packages, nil
+	return config.ReadPackagesConfig()
 }
 
 func AddPackage(packageName string) error {
-	cfg, err := readConfig()
+	packages, err := config.ReadPackagesConfig()
 	if err != nil {
 		return err
 	}
 
-	for _, pkg := range cfg.Packages {
+	for _, pkg := range packages {
 		if pkg.Name == packageName {
 			return fmt.Errorf("package '%s' already exists", packageName)
 		}
 	}
 
 	newPackage := config.Package{Name: packageName, Installed: true}
-	cfg.Packages = append(cfg.Packages, newPackage)
+	packages = append(packages, newPackage)
 
-	if err := writeConfig(cfg); err != nil {
+	if err := config.WritePackagesConfig(packages); err != nil {
 		return err
 	}
 
@@ -73,14 +35,14 @@ func AddPackage(packageName string) error {
 }
 
 func RemovePackage(packageName string) error {
-	cfg, err := readConfig()
+	packages, err := config.ReadPackagesConfig()
 	if err != nil {
 		return err
 	}
 
 	var newPackages []config.Package
 	found := false
-	for _, pkg := range cfg.Packages {
+	for _, pkg := range packages {
 		if pkg.Name == packageName {
 			found = true
 		} else {
@@ -92,8 +54,7 @@ func RemovePackage(packageName string) error {
 		return fmt.Errorf("package '%s' not found", packageName)
 	}
 
-	cfg.Packages = newPackages
-	if err := writeConfig(cfg); err != nil {
+	if err := config.WritePackagesConfig(newPackages); err != nil {
 		return err
 	}
 

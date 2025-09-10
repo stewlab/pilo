@@ -124,17 +124,12 @@ func ApplyBaseConfigDefaults() error {
 
 	// Validate users array
 	if !userMatch || len(conf.Users) == 0 {
-		// return fmt.Errorf("the 'users' array in base-config.json cannot be empty")
 		conf.Users = append(conf.Users, config.User{
 			Username: conf.System.Username,
 			Email:    fmt.Sprintf("%s@pilo", conf.System.Username),
 			Name:     conf.System.Username,
 		})
 	}
-
-	// if !userMatch {
-	// 	return fmt.Errorf("at least one user in base-config.json must match the system username ('%s')", conf.System.Username)
-	// }
 
 	// Write the updated config back to the file
 	if err := config.WriteConfig(conf); err != nil {

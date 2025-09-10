@@ -1,7 +1,6 @@
 package api
 
 import (
-	"fmt"
 	"pilo/internal/config"
 )
 
@@ -12,60 +11,55 @@ type User struct {
 	Name     string `json:"name"`
 }
 
-// GetUsers reads the users from the base-config.json file.
+// GetUsers reads the users from the users.json file.
 func GetUsers() ([]config.User, error) {
-	cfg, err := config.ReadConfig()
-	if err != nil {
-		return nil, fmt.Errorf("error loading base config: %w", err)
-	}
-	return cfg.Users, nil
+	return config.ReadUsersConfig()
 }
 
-// AddUser adds a new user to the base-config.json file.
+// AddUser adds a new user to the users.json file.
 func AddUser(username, name, email string) error {
-	cfg, err := config.ReadConfig()
+	users, err := config.ReadUsersConfig()
 	if err != nil {
 		return err
 	}
 
-	cfg.Users = append(cfg.Users, config.User{Username: username, Name: name, Email: email})
+	users = append(users, config.User{Username: username, Name: name, Email: email})
 
-	return config.WriteConfig(cfg)
+	return config.WriteUsersConfig(users)
 }
 
-// RemoveUser removes a user from the base-config.json file.
+// RemoveUser removes a user from the users.json file.
 func RemoveUser(username string) error {
-	cfg, err := config.ReadConfig()
+	users, err := config.ReadUsersConfig()
 	if err != nil {
 		return err
 	}
 
 	var updatedUsers []config.User
-	for _, user := range cfg.Users {
+	for _, user := range users {
 		if user.Username != username {
 			updatedUsers = append(updatedUsers, user)
 		}
 	}
-	cfg.Users = updatedUsers
 
-	return config.WriteConfig(cfg)
+	return config.WriteUsersConfig(updatedUsers)
 }
 
 // UpdateUser updates an existing user.
 func UpdateUser(oldUsername, newUsername, name, email string) error {
-	cfg, err := config.ReadConfig()
+	users, err := config.ReadUsersConfig()
 	if err != nil {
 		return err
 	}
 
-	for i, user := range cfg.Users {
+	for i, user := range users {
 		if user.Username == oldUsername {
-			cfg.Users[i].Username = newUsername
-			cfg.Users[i].Name = name
-			cfg.Users[i].Email = email
+			users[i].Username = newUsername
+			users[i].Name = name
+			users[i].Email = email
 			break
 		}
 	}
 
-	return config.WriteConfig(cfg)
+	return config.WriteUsersConfig(users)
 }

@@ -37,14 +37,29 @@ type User struct {
 
 type BaseConfig struct {
 	CommitTriggers []string          `json:"commit_triggers"`
-	Packages       []Package         `json:"packages"`
-	Aliases        map[string]string `json:"aliases"`
+	Packages       []Package         `json:"-"`
+	Aliases        map[string]string `json:"-"`
 	PushOnCommit   bool              `json:"push_on_commit"`
 	RemoteURL      string            `json:"remote_url"`
 	RemoteBranch   string            `json:"remote_branch"`
 	System         System            `json:"system"`
-	Users          []User            `json:"users"`
+	Users          []User            `json:"-"`
 	NixBinPath     string            `json:"nix_bin_path"`
+}
+
+// PackagesConfig defines the structure for the packages.json file.
+type PackagesConfig struct {
+	Packages []Package `json:"packages"`
+}
+
+// AliasesConfig defines the structure for the aliases.json file.
+type AliasesConfig struct {
+	Aliases map[string]string `json:"aliases"`
+}
+
+// UsersConfig defines the structure for the users.json file.
+type UsersConfig struct {
+	Users []User `json:"users"`
 }
 
 var App fyne.App
@@ -71,13 +86,13 @@ func GetInstallPath() string {
 	return App.Preferences().StringWithFallback("installationPath", must(os.UserHomeDir())+"/.config/pilo")
 }
 
-// readConfig reads and unmarshals the base-config.json file.
+// ReadConfig reads and unmarshals the configuration from multiple files.
 func ReadConfig() (*BaseConfig, error) {
+	// Read base config
 	configPath := filepath.Join(GetInstallPath(), "flake", "base-config.json")
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			// If the file doesn't exist, create a default one and read it again.
 			if err := writeDefaultConfig(configPath); err != nil {
 				return nil, err
 			}
@@ -88,14 +103,79 @@ func ReadConfig() (*BaseConfig, error) {
 
 	var config BaseConfig
 	if err := json.Unmarshal(data, &config); err != nil {
-		// If unmarshalling fails, it might be due to an invalid config.
-		// Create a default one and read it again.
 		if err := writeDefaultConfig(configPath); err != nil {
 			return nil, err
 		}
 		return ReadConfig()
 	}
+
+	// Read packages config
+	packages, err := ReadPackagesConfig()
+	if err != nil {
+		return nil, err
+	}
+	config.Packages = packages
+
+	// Read aliases config
+	aliases, err := ReadAliasesConfig()
+	if err != nil {
+		return nil, err
+	}
+	config.Aliases = aliases
+
+	// Read users config
+	users, err := ReadUsersConfig()
+	if err != nil {
+		return nil, err
+	}
+	config.Users = users
+
 	return &config, nil
+}
+
+// ReadPackagesConfig reads and unmarshals the packages.json file.
+func ReadPackagesConfig() ([]Package, error) {
+	path := filepath.Join(GetInstallPath(), "flake", "packages.json")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	var packagesConfig PackagesConfig
+	if err := json.Unmarshal(data, &packagesConfig); err != nil {
+		return nil, err
+	}
+	return packagesConfig.Packages, nil
+}
+
+// ReadAliasesConfig reads and unmarshals the aliases.json file.
+func ReadAliasesConfig() (map[string]string, error) {
+	path := filepath.Join(GetInstallPath(), "flake", "aliases.json")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	var aliasesConfig AliasesConfig
+	if err := json.Unmarshal(data, &aliasesConfig); err != nil {
+		return nil, err
+	}
+	return aliasesConfig.Aliases, nil
+}
+
+// ReadUsersConfig reads and unmarshals the users.json file.
+func ReadUsersConfig() ([]User, error) {
+	path := filepath.Join(GetInstallPath(), "flake", "users.json")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, err
+	}
+
+	var usersConfig UsersConfig
+	if err := json.Unmarshal(data, &usersConfig); err != nil {
+		return nil, err
+	}
+	return usersConfig.Users, nil
 }
 
 // writeDefaultConfig creates a default base-config.json file.
@@ -103,21 +183,64 @@ func writeDefaultConfig(path string) error {
 	return GenerateBaseConfig(path)
 }
 
-// WriteConfig marshals and writes the config to base-config.json, ensuring slices are sorted.
+// WriteConfig marshals and writes the config to their respective files.
 func WriteConfig(config *BaseConfig) error {
 	// Sort all string slices to ensure canonical representation
 	sort.Strings(config.CommitTriggers)
-	sort.Slice(config.Packages, func(i, j int) bool {
-		return config.Packages[i].Name < config.Packages[j].Name
-	})
 
+	// Write base config (without packages, aliases, users)
+	baseConfig := *config
+	// The fields are ignored by json marshalling, so no need to nil them
 	configPath := filepath.Join(GetInstallPath(), "flake", "base-config.json")
-	newData, err := json.MarshalIndent(config, "", "  ")
+	newData, err := json.MarshalIndent(baseConfig, "", "  ")
 	if err != nil {
 		return err
 	}
+	if err := os.WriteFile(configPath, newData, 0644); err != nil {
+		return err
+	}
 
-	return os.WriteFile(configPath, newData, 0644)
+	// Write packages, aliases, and users to their own files
+	if err := WritePackagesConfig(config.Packages); err != nil {
+		return err
+	}
+	if err := WriteAliasesConfig(config.Aliases); err != nil {
+		return err
+	}
+	return WriteUsersConfig(config.Users)
+}
+
+// WritePackagesConfig marshals and writes the packages to packages.json.
+func WritePackagesConfig(packages []Package) error {
+	sort.Slice(packages, func(i, j int) bool {
+		return packages[i].Name < packages[j].Name
+	})
+	path := filepath.Join(GetInstallPath(), "flake", "packages.json")
+	newData, err := json.MarshalIndent(PackagesConfig{Packages: packages}, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, newData, 0644)
+}
+
+// WriteAliasesConfig marshals and writes the aliases to aliases.json.
+func WriteAliasesConfig(aliases map[string]string) error {
+	path := filepath.Join(GetInstallPath(), "flake", "aliases.json")
+	newData, err := json.MarshalIndent(AliasesConfig{Aliases: aliases}, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, newData, 0644)
+}
+
+// WriteUsersConfig marshals and writes the users to users.json.
+func WriteUsersConfig(users []User) error {
+	path := filepath.Join(GetInstallPath(), "flake", "users.json")
+	newData, err := json.MarshalIndent(UsersConfig{Users: users}, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, newData, 0644)
 }
 
 // GetNixpkgsUrl retrieves the Nixpkgs URL from preferences.
@@ -334,14 +457,9 @@ func GetUsers() ([]User, error) {
 	return config.Users, nil
 }
 
-// SetUsers sets the list of users in the base config file.
+// SetUsers sets the list of users in the users.json file.
 func SetUsers(users []User) error {
-	config, err := ReadConfig()
-	if err != nil {
-		return err
-	}
-	config.Users = users
-	return WriteConfig(config)
+	return WriteUsersConfig(users)
 }
 
 // GetUsername retrieves the username from the base config file, or the system username if not set.
@@ -413,25 +531,6 @@ func SetType(systemType string) error {
 	config.System.Type = systemType
 	return WriteConfig(config)
 }
-
-// // GetUsers retrieves the list of users from the base config file.
-// func GetUsers() ([]User, error) {
-// 	config, err := ReadConfig()
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	return config.Users, nil
-// }
-
-// // SetUsers sets the list of users in the base config file.
-// func SetUsers(users []User) error {
-// 	config, err := ReadConfig()
-// 	if err != nil {
-// 		return err
-// 	}
-// 	config.Users = users
-// 	return WriteConfig(config)
-// }
 
 // GetDesktop retrieves
 func GetDesktop() (string, error) {

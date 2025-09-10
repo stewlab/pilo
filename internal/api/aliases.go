@@ -9,7 +9,7 @@ import (
 )
 
 func getAliasesFile() string {
-	return filepath.Join(config.GetFlakePath(), "users", "aliases.json")
+	return filepath.Join(config.GetFlakePath(), "aliases.json")
 }
 
 // Alias represents a custom command alias.

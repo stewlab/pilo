@@ -1,0 +1,9 @@
+{
+  "users": [
+    {
+      "username": "nixuser",
+      "email": "nixuser@pilo",
+      "name": "Nix User"
+    }
+  ]
+}
