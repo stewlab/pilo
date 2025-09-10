@@ -14,13 +14,13 @@ This flake manages:
 
 ## How It Works
 
-This flake provides a unified configuration for three Nix environments: a full NixOS system, a multi-user Nix installation on another Linux distribution, and a single-user Nix installation. It exposes different outputs that are consumed by different tools.
+This flake provides a unified configuration for Nix environments on NixOS, Linux, and macOS. It exposes different outputs that are consumed by different tools.
 
 -   **For NixOS**: The `nixosConfigurations` output defines the entire operating system. When you run `pilo rebuild`, it builds the system configuration from `./hosts/nixos/configuration.nix` and integrates Home Manager as a system module. This creates a declarative and reproducible OS.
 
--   **For Single-User & Multi-User Nix**: The `homeConfigurations` output is used for non-NixOS systems. It creates a standalone Home Manager configuration for each user defined in the flake. A user can run `pilo rebuild` to apply their personal configuration without affecting the base system or other users. This works for a single user on a machine or for multiple users who each manage their own environment from the same flake.
+-   **For Linux (Non-NixOS) & macOS**: The `homeConfigurations` output is used for non-NixOS systems. It creates a standalone Home Manager configuration for each user defined in the flake. A user can run `pilo rebuild` to apply their personal configuration without affecting the base system or other users. This works for a single user on a machine or for multiple users who each manage their own environment from the same flake.
 
--   **Universal Tools**: The `devShells`, `packages`, and `apps` outputs are universal. They can be used on any Nix-enabled system to create development environments (`pilo develop`), install custom packages (`pilo install`), or run applications (`nix run`).
+-   **Universal Tools**: The `devShells`, `packages`, and `apps` outputs are universal. They can be used on any Nix-enabled system to create development environments (`pilo develop`), install custom packages (`pilo setup`), or run applications (`nix run`).
 
 ### Configuration Flow Diagram
 
@@ -61,7 +61,7 @@ graph TD
         direction TB
         U1["NixOS System (`pilo rebuild`)"]
         U2["Single/Multi-User Nix (`pilo rebuild`)"]
-        U3["Universal Tools (`pilo develop`, `pilo install`, etc.)"]
+        U3["Universal Tools (`pilo develop`, `pilo setup`, etc.)"]
     end
 
     O1 --> U1

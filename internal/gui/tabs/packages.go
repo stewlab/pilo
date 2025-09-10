@@ -102,7 +102,10 @@ func CreatePackagesTab(runCmd func(func() error, string, bool, func()), a fyne.A
 	resultsList := widget.NewListWithData(
 		resultsBinding,
 		func() fyne.CanvasObject {
-			return container.NewBorder(nil, nil, widget.NewLabel("template"), widget.NewButton("📥  Install", nil))
+			installButton := widget.NewButton("💾  Add to config", nil)
+			tempInstallButton := widget.NewButton("🚀  Temp Install", nil)
+			buttons := container.NewHBox(installButton, tempInstallButton)
+			return container.NewBorder(nil, nil, widget.NewLabel("template"), buttons)
 		},
 		func(i binding.DataItem, o fyne.CanvasObject) {
 			item, err := i.(binding.Untyped).Get()
@@ -115,9 +118,12 @@ func CreatePackagesTab(runCmd func(func() error, string, bool, func()), a fyne.A
 			label := container.Objects[0].(*widget.Label)
 			label.SetText(pkg.Name + " - " + pkg.Description)
 
-			installButton := container.Objects[1].(*widget.Button)
+			buttons := container.Objects[1].(*fyne.Container)
+			installButton := buttons.Objects[0].(*widget.Button)
+			tempInstallButton := buttons.Objects[1].(*widget.Button)
+
 			installButton.OnTapped = func() {
-				dialogs.ShowConfirm(w, "Install Package", "Are you sure you want to install "+pkg.Name+"?", func(ok bool) {
+				dialogs.ShowConfirm(w, "Add Package to Config", "Are you sure you want to add "+pkg.Name+" to your config?", func(ok bool) {
 					if ok {
 						runCmd(func() error {
 							return api.AddPackage(pkg.Name)
@@ -125,7 +131,18 @@ func CreatePackagesTab(runCmd func(func() error, string, bool, func()), a fyne.A
 							refreshInstalled(false)
 							refreshPendingActions()
 							installButton.Hide()
+							tempInstallButton.Hide()
 						})
+					}
+				})
+			}
+
+			tempInstallButton.OnTapped = func() {
+				dialogs.ShowConfirm(w, "Temporary Install", "This will open a new shell with "+pkg.Name+" available. Continue?", func(ok bool) {
+					if ok {
+						runCmd(func() error {
+							return api.TempInstallPackage(pkg.Name)
+						}, "🚀  Starting shell...", true, nil)
 					}
 				})
 			}

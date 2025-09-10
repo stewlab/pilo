@@ -5,12 +5,12 @@ pkgs.buildGoModule {
   pname = "pilo";
   version = "0.1.0";
   src = ../.;
-  vendorHash = "sha256-Oy0hlui2o79NU1FVTkiRSUv417CGJ9FVpJxydDSQYkE=";
+  vendorSha256 = pkgs.lib.fakeSha256;
   nativeBuildInputs = with pkgs; [
     pkg-config
   ];
-  buildInputs = with pkgs; [
-    # GUI & Audio Libs from devshell
+  buildInputs = with pkgs; if stdenv.isLinux then [
+    # GUI & Audio Libs for Linux
     mesa
     libglvnd
     vulkan-loader
@@ -30,5 +30,14 @@ pkgs.buildGoModule {
     xorg.libxcb
     portaudio
     alsa-lib
-  ];
+  ] else if stdenv.isDarwin then [
+    # GUI & Audio Libs for macOS
+    frameworks.Cocoa
+    frameworks.Security
+    frameworks.SystemConfiguration
+    frameworks.CoreAudio
+    frameworks.AudioToolbox
+    frameworks.CoreMIDI
+    portaudio
+  ] else [];
 }

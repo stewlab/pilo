@@ -7,17 +7,28 @@
 
   outputs = { self, nixpkgs, ... }@inputs:
     let
-      system = "x86_64-linux"; # Assuming x86_64-linux, adjust if needed
-      pkgs = import nixpkgs {
-        inherit system;
-        config.allowUnfree = true;
-      };
+      # List of supported systems
+      supportedSystems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
+
+      # Helper function to generate outputs for each system
+      forAllSystems = f: nixpkgs.lib.genAttrs supportedSystems (system: f {
+        pkgs = import nixpkgs {
+          inherit system;
+          config.allowUnfree = true;
+        };
+      });
     in
     {
-      packages.${system}.default = import ./nix/pilo.nix { inherit pkgs; };
+      # Generate packages for each supported system
+      packages = forAllSystems ({ pkgs }: {
+        default = import ./nix/pilo.nix { inherit pkgs; };
+      });
 
-      devShells.${system}.default = pkgs.mkShell {
-        buildInputs = [ pkgs.go ];
-      };
+      # Generate devShells for each supported system
+      devShells = forAllSystems ({ pkgs }: {
+        default = pkgs.mkShell {
+          buildInputs = [ pkgs.go ];
+        };
+      });
     };
 }

@@ -32,7 +32,7 @@ nix develop ./flake#go -c go build -ldflags="${LDFLAGS}" -o ./bin/pilo .
 
 # group prod
 # nix-develop go --command go build -o bin/pilo .
-# ./bin/pilo install
+# ./bin/pilo setup
 # ./bin/pilo rebuild # (sudo nixos-rebuild switch --flake ~/.config/pilo/flake#nixos)
 
 

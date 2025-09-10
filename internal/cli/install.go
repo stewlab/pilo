@@ -15,7 +15,7 @@ import (
 )
 
 var installCmd = &cobra.Command{
-	Use:   "install",
+	Use:   "setup",
 	Short: "Install pilo and configure your system.",
 	Long:  `This command installs the pilo flake to your system and configures it as a Nix registry entry.`,
 	Run: func(cmd *cobra.Command, args []string) {
