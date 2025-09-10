@@ -107,6 +107,10 @@ func Search(query []string, sortByPopularity bool, freeOnly bool) ([]config.Pack
 	return packages, nil
 }
 
+func TempInstallPackage(packageName string) error {
+	return nix.RunInteractiveCommand("nix-shell", "-p", packageName)
+}
+
 // Install installs packages.
 func Install(packages []string) error {
 	for _, pkg := range packages {
@@ -127,8 +131,7 @@ func Install(packages []string) error {
 		fmt.Println("On NixOS, permanent packages should be added to configuration.nix.")
 		fmt.Println("Providing a temporary shell with the requested packages...")
 		args := append([]string{"-p"}, packages...)
-		_, err := nix.RunCommand("nix-shell", args...)
-		return err
+		return nix.RunInteractiveCommand("nix-shell", args...)
 	}
 	fmt.Println("Installing packages with nix profile...")
 	args := append([]string{"profile", "install"}, packages...)
@@ -154,8 +157,7 @@ func List() (string, error) {
 func Shell(packages []string) error {
 	fmt.Println("Entering a temporary shell...")
 	args := append([]string{"-p"}, packages...)
-	_, err := nix.RunCommand("nix-shell", args...)
-	return err
+	return nix.RunInteractiveCommand("nix-shell", args...)
 }
 
 // Remove removes packages from the user profile.
