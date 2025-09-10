@@ -104,6 +104,16 @@ Pilo is configured through the `base-config.json` file, located in `~/.config/pi
     -   `ollama` (object): Configuration for Ollama models.
 -   **`users`** (array of objects): A list of users to be configured by Home Manager.
 
+## File Structure
+
+-   `flake/`: Contains the Nix flake and its related configurations. See the [flake/README.md](flake/README.md) for more details.
+-   `cmd/`: Contains the main application code.
+-   `internal/`: Contains internal packages and libraries used by the application.
+-   `main.go`: The entry point for the application.
+-   `go.mod` and `go.sum`: Go module files for managing dependencies.
+-   `Containerfile`: A file for building the application container.
+-   `container_build.sh`: A script for building and managing the application container.
+
 ## Development
 
 First, clone the repository:
