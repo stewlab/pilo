@@ -156,11 +156,22 @@ func ReadAliasesConfig() (map[string]string, error) {
 		return nil, err
 	}
 
-	var aliasesConfig AliasesConfig
-	if err := json.Unmarshal(data, &aliasesConfig); err != nil {
-		return nil, err
+	var aliases map[string]string
+	// Attempt to unmarshal into a nested structure first for backward compatibility
+	var nested AliasesConfig
+	if err := json.Unmarshal(data, &nested); err == nil && nested.Aliases != nil {
+		aliases = nested.Aliases
+	} else {
+		// Fallback to unmarshaling as a flat map
+		if err := json.Unmarshal(data, &aliases); err != nil {
+			return nil, err
+		}
 	}
-	return aliasesConfig.Aliases, nil
+
+	if aliases == nil {
+		aliases = make(map[string]string)
+	}
+	return aliases, nil
 }
 
 // ReadUsersConfig reads and unmarshals the users.json file.
@@ -226,7 +237,7 @@ func WritePackagesConfig(packages []Package) error {
 // WriteAliasesConfig marshals and writes the aliases to aliases.json.
 func WriteAliasesConfig(aliases map[string]string) error {
 	path := filepath.Join(GetInstallPath(), "flake", "aliases.json")
-	newData, err := json.MarshalIndent(AliasesConfig{Aliases: aliases}, "", "  ")
+	newData, err := json.MarshalIndent(aliases, "", "  ")
 	if err != nil {
 		return err
 	}

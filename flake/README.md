@@ -105,7 +105,7 @@ The `flake.nix` is the central point of the NixOS configuration. Here's a breakd
 
 ## Usage
 
-> **Note:** This flake is designed to be managed by the `pilo` command-line tool. For detailed usage instructions, please refer to the main [**Pilo repository**](https://github.com/stewlab/pilo).
+> **Note:** This flake is designed to be managed by the `pilo` command-line tool. For detailed usage instructions, please refer to the main [**Pilo README**](../README.md).
 
 ## File Structure
 
@@ -113,3 +113,6 @@ The `flake.nix` is the central point of the NixOS configuration. Here's a breakd
 -   `hosts/nixos/`: Contains the main configuration files for the NixOS system.
 -   `users/`: Contains user-specific configurations managed by Home Manager.
 -   `devshells/`: Contains definitions for persistent development shells.
+-   `aliases.json`: A file for managing shell aliases.
+-   `users.json`: A file for managing users.
+-   `packages.json`: A file for managing packages.
