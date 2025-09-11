@@ -196,7 +196,7 @@ build_artifact_binary() {
 
     echo "Building binary in container..."
     # The go build command is now run inside the running container
-    $CONTAINER_CMD exec "${container_id}" go build -ldflags="${ldflags}" -o "/app/build/${FINAL_BINARY_NAME}" "${MAIN_GO_PATH}"
+    $CONTAINER_CMD exec "${container_id}" go build -ldflags="${ldflags}" -tags osusergo,netgo -extldflags "-static" -o "/app/build/${FINAL_BINARY_NAME}" "${MAIN_GO_PATH}"
 
 
     echo "Copying binary from container..."
