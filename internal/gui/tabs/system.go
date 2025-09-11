@@ -8,7 +8,6 @@ import (
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/data/binding"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -162,17 +161,17 @@ func CreateSystemTab(
 		),
 	)
 
-	pendingActionsBinding := binding.NewStringList()
-	pendingActionsList := widget.NewListWithData(
-		pendingActionsBinding,
-		func() fyne.CanvasObject {
-			return widget.NewLabel("template")
-		},
-		func(i binding.DataItem, o fyne.CanvasObject) {
-			item, _ := i.(binding.String).Get()
-			o.(*widget.Label).SetText(item)
-		},
-	)
+	// pendingActionsBinding := binding.NewStringList()
+	// pendingActionsList := widget.NewListWithData(
+	// 	pendingActionsBinding,
+	// 	func() fyne.CanvasObject {
+	// 		return widget.NewLabel("template")
+	// 	},
+	// 	func(i binding.DataItem, o fyne.CanvasObject) {
+	// 		item, _ := i.(binding.String).Get()
+	// 		o.(*widget.Label).SetText(item)
+	// 	},
+	// )
 
 	// System
 	tab.systemEntry = components.NewSafeEntry()
@@ -218,20 +217,23 @@ func CreateSystemTab(
 		widget.NewFormItem("Username", tab.usernameEntry),
 	)
 
-	topContent := container.NewVBox(
-		widget.NewLabelWithStyle("System Actions", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
-		actions,
-		widget.NewSeparator(),
-		widget.NewLabelWithStyle("Pending Actions", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+	coreSystemConfigContent := container.NewVBox(
+		widget.NewLabelWithStyle("System Input", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
 		systetmForm,
 	)
 
+	systemActionContent := container.NewVBox(
+		widget.NewLabelWithStyle("System Commands", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		actions,
+		widget.NewSeparator(),
+	)
+
 	content := container.NewBorder(
-		topContent,
+		coreSystemConfigContent,
 		nil,
 		nil,
 		nil,
-		pendingActionsList,
+		systemActionContent,
 	)
 
 	tab.CanvasObject = container.NewPadded(content)
