@@ -28,7 +28,7 @@ fi
 echo "Building Pilo binary..."
 VERSION=$(git describe --tags --always --dirty)
 LDFLAGS="-X pilo/internal/cli.Version=${VERSION}"
-nix develop ./flake#go -c go build -ldflags="${LDFLAGS}" -tags osusergo,netgo -extldflags "-static" -o ./bin/pilo .
+nix develop ./flake#go -c go build -ldflags="${LDFLAGS}" -o ./bin/pilo .
 
 # group prod
 # nix-develop go --command go build -o bin/pilo .
