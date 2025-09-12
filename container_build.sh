@@ -28,7 +28,7 @@ echo "Using container engine: $CONTAINER_CMD"
 # --- Functions ---
 
 usage() {
-  echo "Usage: $0 [start-dev|stop-dev|shell-dev|run-dev|build|run|rebuild-dev|rebuild-app|build-artifact] [app_args...]"
+  echo "Usage: $0 [start-dev|stop-dev|shell-dev|run-dev|build|run|rebuild-dev|rebuild-app|build-artifact|build-nixos-artifact] [app_args...]"
   echo "Development Commands:"
   echo "  start-dev    : Start the persistent development container."
   echo "  stop-dev     : Stop and remove the persistent development container."
@@ -40,7 +40,8 @@ usage() {
   echo "  build        : Build the final application image."
   echo "  run          : Run the final application image."
   echo "  rebuild-app  : Force rebuild of the application image."
-  echo "  build-artifact: Build the application binary and place it in the artifacts directory."
+  echo "  build-artifact: Build the application binary for the host architecture and place it in the artifacts directory."
+  echo "  build-nixos-artifact: Build the NixOS application binary and place it in the artifacts directory."
   exit 1
 }
 
@@ -175,14 +176,27 @@ run_app() {
 }
 
 build_artifact_binary() {
+    local arch=${1:-} # Use the first argument as arch, or default to empty
+    if [ -z "$arch" ]; then
+        case $(uname -m) in
+            x86_64) arch="amd64" ;;
+            aarch64) arch="arm64" ;;
+            *)
+                echo "Unsupported architecture: $(uname -m)" >&2
+                exit 1
+                ;;
+        esac
+    fi
+
     local tool_image_name="${APP_IMAGE_NAME}-builder-tool"
     local build_version
     build_version=$(git describe --tags --always --dirty 2>/dev/null || echo "0.0.1")
     local ldflags="-X pilo/internal/cli.Version=${build_version}"
 
-    echo "Building builder tool image..."
+    echo "Building builder tool image for linux/${arch}..."
     $CONTAINER_CMD build \
         --target builder \
+        --platform "linux/${arch}" \
         --build-arg TOOL=true \
         --build-arg APP_NAME="${FINAL_BINARY_NAME}" \
         --build-arg MAIN_GO_PATH="${MAIN_GO_PATH}" \
@@ -192,21 +206,65 @@ build_artifact_binary() {
 
     echo "Creating and starting temporary container..."
     local container_id
-    container_id=$($CONTAINER_CMD run -d "${tool_image_name}" sleep infinity)
+    container_id=$($CONTAINER_CMD run -d --platform "linux/${arch}" "${tool_image_name}" sleep infinity)
 
     echo "Building binary in container..."
-    # The go build command is now run inside the running container
     $CONTAINER_CMD exec "${container_id}" go build -ldflags="${ldflags}" -o "/app/build/${FINAL_BINARY_NAME}" "${MAIN_GO_PATH}"
-
 
     echo "Copying binary from container..."
     mkdir -p artifacts
-    $CONTAINER_CMD cp "${container_id}:/app/build/${FINAL_BINARY_NAME}" "./artifacts/${FINAL_BINARY_NAME}-linux-amd64"
+    $CONTAINER_CMD cp "${container_id}:/app/build/${FINAL_BINARY_NAME}" "./artifacts/${FINAL_BINARY_NAME}-linux-${arch}"
 
     echo "Stopping and removing temporary container..."
     $CONTAINER_CMD rm -f "${container_id}"
 
-    echo "Binary created at ./artifacts/${FINAL_BINARY_NAME}-linux-amd64"
+    echo "Binary created at ./artifacts/${FINAL_BINARY_NAME}-linux-${arch}"
+}
+
+build_nixos_artifact() {
+    local arch=${1:-} # Use the first argument as arch, or default to empty
+    if [ -z "$arch" ]; then
+        case $(uname -m) in
+            x86_64) arch="amd64" ;;
+            aarch64) arch="arm64" ;;
+            *)
+                echo "Unsupported architecture: $(uname -m)" >&2
+                exit 1
+                ;;
+        esac
+    fi
+
+    local tool_image_name="${APP_IMAGE_NAME}-nix-builder-tool"
+    local build_version
+    build_version=$(git describe --tags --always --dirty 2>/dev/null || echo "0.0.1")
+    local ldflags="-X pilo/internal/cli.Version=${build_version}"
+
+    echo "Building Nix builder tool image for linux/${arch}..."
+    $CONTAINER_CMD build \
+        --target builder \
+        --platform "linux/${arch}" \
+        -t "${tool_image_name}" \
+        -f Containerfile .
+
+    echo "Creating and starting temporary container..."
+    local container_id
+    container_id=$($CONTAINER_CMD run -d --platform "linux/${arch}" -v "${PWD}:/app:z" -w /app "${tool_image_name}" sleep infinity)
+
+    echo "Building binary in container..."
+    $CONTAINER_CMD exec --env "LDFLAGS_STRING=${ldflags}" "${container_id}" /bin/bash -c '
+      . /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
+      nix --extra-experimental-features "nix-command flakes" develop ./flake#go -c \
+        bash -c "unset GOSUMDB && go build -ldflags=\"${LDFLAGS_STRING}\" -o ./bin/pilo ."
+    '
+
+    echo "Copying binary from container..."
+    mkdir -p artifacts
+    $CONTAINER_CMD cp "${container_id}:/app/bin/pilo" "./artifacts/${FINAL_BINARY_NAME}-nixos-${arch}"
+
+    echo "Stopping and removing temporary container..."
+    $CONTAINER_CMD rm -f "${container_id}"
+
+    echo "NixOS binary created at ./artifacts/${FINAL_BINARY_NAME}-nixos-${arch}"
 }
 
 # --- Main Logic ---
@@ -249,7 +307,10 @@ case "$COMMAND" in
     run_app "$@"
     ;;
   build-artifact)
-    build_artifact_binary
+    build_artifact_binary "$@"
+    ;;
+  build-nixos-artifact)
+    build_nixos_artifact "$@"
     ;;
   *)
     usage

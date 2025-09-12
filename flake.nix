@@ -27,7 +27,7 @@
       # Generate devShells for each supported system
       devShells = forAllSystems ({ pkgs }: {
         default = pkgs.mkShell {
-          buildInputs = [ pkgs.go ];
+          buildInputs = [ pkgs.go pkgs.nix ];
         };
       });
     };
