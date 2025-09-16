@@ -2,7 +2,8 @@
 
 # ---- Builder Stage ----
 # This stage builds the Go application.
-FROM public.ecr.aws/docker/library/fedora:42 AS builder
+ARG PLATFORM=linux/amd64
+FROM --platform=${PLATFORM} public.ecr.aws/docker/library/fedora:42 AS builder
 
 # Install build dependencies
 RUN dnf install -y \

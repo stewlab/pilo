@@ -242,7 +242,7 @@ build_nixos_artifact() {
     echo "Building Nix builder tool image for linux/${arch}..."
     $CONTAINER_CMD build \
         --target builder \
-        --platform "linux/${arch}" \
+        --build-arg PLATFORM="linux/${arch}" \
         -t "${tool_image_name}" \
         -f Containerfile .
 
