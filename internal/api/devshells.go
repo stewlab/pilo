@@ -10,143 +10,87 @@ import (
 	"strings"
 )
 
-func getDevshellsDir() string {
-	return filepath.Join(config.GetFlakePath(), "devshells")
+func getDevshellTemplatesDir() string {
+	return filepath.Join(config.GetFlakePath(), "devshells", "templates")
 }
 
-// Devshell represents a development shell.
+// Devshell represents a development shell template.
 type Devshell struct {
 	Name        string
 	Type        string // "Normal" or "FHS"
 	Description string
 }
 
-// AddDevshellWithContent creates a new devshell file with the given content.
-// If the name is empty, a unique name is generated.
-func AddDevshellWithContent(name, content string) error {
-	if name == "" {
-		// Find an unused name
-		i := 1
-		for {
-			name = fmt.Sprintf("devshell-%d", i)
-			filePath := filepath.Join(getDevshellsDir(), name+".nix")
-			if _, err := os.Stat(filePath); os.IsNotExist(err) {
-				break
-			}
-			i++
-		}
+// InitDevshellFromTemplate creates a new devshell project from a template.
+func InitDevshellFromTemplate(templateName, targetDir string) error {
+	templatePath := filepath.Join(getDevshellTemplatesDir(), templateName, "flake.nix")
+	if _, err := os.Stat(templatePath); os.IsNotExist(err) {
+		return fmt.Errorf("devshell template '%s' not found", templateName)
 	}
 
-	filePath := filepath.Join(getDevshellsDir(), name+".nix")
-	return os.WriteFile(filePath, []byte(content), 0644)
-}
+	if err := os.MkdirAll(targetDir, 0755); err != nil {
+		return fmt.Errorf("could not create target directory '%s': %w", targetDir, err)
+	}
 
-// RemoveDevshell removes a devshell file.
-func RemoveDevshell(name string) error {
-	filePath := filepath.Join(getDevshellsDir(), name+".nix")
-	return os.Remove(filePath)
-}
+	flakeNixPath := filepath.Join(targetDir, "flake.nix")
+	if _, err := os.Stat(flakeNixPath); err == nil {
+		return fmt.Errorf("a 'flake.nix' file already exists in '%s'", targetDir)
+	}
 
-// DuplicateDevShell duplicates a devshell file.
-func DuplicateDevShell(name string) error {
-	originalPath := filepath.Join(getDevshellsDir(), name+".nix")
-	content, err := os.ReadFile(originalPath)
+	content, err := os.ReadFile(templatePath)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not read template file: %w", err)
 	}
 
-	// Find a new name
-	i := 1
-	var newName string
-	for {
-		newName = fmt.Sprintf("%s-%d", name, i)
-		newPath := filepath.Join(getDevshellsDir(), newName+".nix")
-		if _, err := os.Stat(newPath); os.IsNotExist(err) {
-			break
-		}
-		i++
-	}
-
-	newPath := filepath.Join(getDevshellsDir(), newName+".nix")
-	return os.WriteFile(newPath, content, 0644)
+	return os.WriteFile(flakeNixPath, content, 0644)
 }
 
-// RenameDevShell renames a devshell file.
-func RenameDevShell(oldName, newName string) error {
-	oldPath := filepath.Join(getDevshellsDir(), oldName+".nix")
-	newPath := filepath.Join(getDevshellsDir(), newName+".nix")
-	return os.Rename(oldPath, newPath)
-}
-
-// ListDevshells lists all available devshells.
+// ListDevshells lists all available devshell templates.
 func ListDevshells() ([]Devshell, error) {
-	files, err := os.ReadDir(getDevshellsDir())
+	entries, err := os.ReadDir(getDevshellTemplatesDir())
 	if err != nil {
 		return nil, err
 	}
 
 	var devshells []Devshell
-	for _, file := range files {
-		if strings.HasSuffix(file.Name(), ".nix") {
-			name := strings.TrimSuffix(file.Name(), ".nix")
-			// For simplicity, we'll just mark them as "Normal" for now.
-			// A more robust solution would be to parse the file content.
-			// A more robust solution would be to parse the file content.
-			description := "A development shell."
-			if strings.Contains(name, "fhs") {
-				description = "An FHS development shell."
+	for _, entry := range entries {
+		if entry.IsDir() {
+			templateName := entry.Name()
+			flakePath := filepath.Join(getDevshellTemplatesDir(), templateName, "flake.nix")
+			if _, err := os.Stat(flakePath); err == nil {
+				description := "A development shell template."
+				shellType := "Normal"
+				if strings.Contains(templateName, "fhs") {
+					description = "An FHS development shell template."
+					shellType = "FHS"
+				}
+				devshells = append(devshells, Devshell{Name: templateName, Type: shellType, Description: description})
 			}
-			devshells = append(devshells, Devshell{Name: name, Type: "Normal", Description: description})
 		}
 	}
 	return devshells, nil
 }
 
-// EnterDevshell starts a new terminal in the specified devshell.
-func EnterDevshell(name, flakePath string) error {
+// EnterDevshell starts a new terminal in the specified devshell directory.
+func EnterDevshell(directory string) error {
 	terminalCmd := config.GetCustomTerminal()
 	if terminalCmd == "" {
 		terminalCmd = "xterm"
 	}
-	return EnterDevshellWithTerminal(name, flakePath, terminalCmd)
+	// The command needs to change to the directory first, then run nix develop.
+	fullCmd := fmt.Sprintf("cd %s && nix develop", directory)
+	args := []string{"-e", "sh", "-c", fullCmd}
+	return nix.RunCommandInNewTerminal(terminalCmd, args...)
 }
 
-// EnterDevshellWithTerminal starts a new terminal in the specified devshell with a custom terminal.
-func EnterDevshellWithTerminal(name, flakePath, terminal string) error {
-	if flakePath == "" {
-		flakePath = config.GetFlakePath()
-	}
-	args := []string{"-e", "nix", "develop", flakePath + "#" + name}
-	return nix.RunCommandInNewTerminal(terminal, args...)
-}
-
-// RunInDevshell runs a command in the specified devshell.
-func RunInDevshell(name, command, flakePath string) (string, error) {
-	if flakePath == "" {
-		flakePath = config.GetFlakePath()
-	}
-	cmd := exec.Command("nix", "develop", flakePath+"#"+name, "--command", "sh", "-c", command)
+// RunInDevshell runs a command in the specified devshell directory.
+func RunInDevshell(directory, command string) (string, error) {
+	cmd := exec.Command("nix", "develop", directory, "--command", "sh", "-c", command)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("error running command in devshell: %w\nOutput: %s", err, string(output))
 	}
 	return string(output), nil
-}
-
-// GetDevshellContent returns the content of a devshell file.
-func GetDevshellContent(name string) (string, error) {
-	filePath := filepath.Join(getDevshellsDir(), name+".nix")
-	content, err := os.ReadFile(filePath)
-	if err != nil {
-		return "", err
-	}
-	return string(content), nil
-}
-
-// UpdateDevshell updates the content of a devshell file.
-func UpdateDevshell(name, content string) error {
-	filePath := filepath.Join(getDevshellsDir(), name+".nix")
-	return os.WriteFile(filePath, []byte(content), 0644)
 }
 
 // Develop enters a persistent development shell.

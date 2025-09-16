@@ -83,9 +83,6 @@
 
       packages.${system} = (builtins.removeAttrs packagesSet [ "default" "default-list" ]) // { pilo = packagesSet.pilo; };
 
-      devShells.${system} = import ./devshells {
-        inherit pkgs unstablePkgs lib;
-      };
 
       nixosConfigurations = {
         nixos = lib.nixosSystem {

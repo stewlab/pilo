@@ -9,7 +9,7 @@ import (
 	"pilo/internal/dialogs"
 	"pilo/internal/gui/tabs"
 	"pilo/internal/nix"
-	"time" // New import
+	"time"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
@@ -23,7 +23,7 @@ import (
 var refreshTabs func()
 
 var (
-	// Version is the application version, set at build time.
+	// Version is the application version.
 	Version = "0.0.1"
 )
 
@@ -45,8 +45,6 @@ func run() {
 
 	logs := binding.NewStringList()
 	logs.Set(config.GetLogs())
-
-	// title := widget.NewLabelWithStyle("pilo", fyne.TextAlignCenter, fyne.TextStyle{Bold: true})
 
 	flakePathEntry := widget.NewEntry()
 	flakePathEntry.SetText(config.GetInstallPath())
@@ -74,7 +72,7 @@ func run() {
 	})
 
 	runCmd := func(f func() (string, error), msg string, showOutput bool, refresh func()) {
-		config.App.Preferences().SetString("currentTime", time.Now().Format(time.RFC3339)) // Set current time for logging
+		config.App.Preferences().SetString("currentTime", time.Now().Format(time.RFC3339))
 		dialogs.ShowRunningCommandDialog(w, msg, f, func(output string, err error) {
 			fyne.Do(func() {
 				if err != nil {
@@ -149,7 +147,7 @@ func run() {
 			err := f()
 			return "", err
 		}, msg, showOutput, refreshFunc)
-	}, config.GetFlakePath(), w, refreshPendingActions)
+	}, w)
 	aliasesTabContent := tabs.CreateAliasesTab(func(f func() error, msg string, showOutput bool, refreshFunc func()) {
 		runCmd(func() (string, error) {
 			err := f()
@@ -194,7 +192,7 @@ func run() {
 	refreshableTabs = append(refreshableTabs, preferencesTabContent)
 	refreshableTabs = append(refreshableTabs, configEditorTabContent)
 
-	// Set tab location from preferences
+	// Set tab location.
 	tabLocationStr := a.Preferences().StringWithFallback("tabPosition", "Leading")
 	var tabLocation container.TabLocation
 	switch tabLocationStr {
@@ -283,15 +281,12 @@ func (s *statusBarLayout) Layout(objects []fyne.CanvasObject, size fyne.Size) {
 	statusButton := objects[1]
 	versionLabel := objects[2]
 
-	// Logs button on the far right
 	logsButton.Resize(logsButton.MinSize())
 	logsButton.Move(fyne.NewPos(size.Width-logsButton.MinSize().Width, (size.Height-logsButton.MinSize().Height)/2))
 
-	// Version label on the far left
 	versionLabel.Resize(versionLabel.MinSize())
 	versionLabel.Move(fyne.NewPos(0, (size.Height-versionLabel.MinSize().Height)/2))
 
-	// Status button takes up the remaining space in the middle
 	statusButton.Resize(fyne.NewSize(size.Width-logsButton.MinSize().Width-versionLabel.MinSize().Width-theme.Padding()*2, statusButton.MinSize().Height))
 	statusButton.Move(fyne.NewPos(versionLabel.MinSize().Width+theme.Padding(), (size.Height-statusButton.MinSize().Height)/2))
 }
