@@ -92,16 +92,18 @@ func CreateSystemTab(
 	})
 
 	upgradeButton := widget.NewButton("⬆️  Upgrade Packages", func() {
-		runCmd(func() (string, error) {
-			out, err := api.Upgrade()
-			if err != nil {
-				config.AddLogEntry("Error upgrading packages: " + err.Error())
-				return out, err
-			}
-			config.AddLogEntry("Packages upgraded successfully!")
-			refreshPendingActions() // Call refresh after upgrade
-			return out, nil
-		}, "⬆️  Upgrading packages...", true, nil)
+		dialogs.ShowPasswordDialog(w, func(password string) {
+			runCmd(func() (string, error) {
+				out, err := api.Upgrade(password)
+				if err != nil {
+					config.AddLogEntry("Error upgrading packages: " + err.Error())
+					return out, err
+				}
+				config.AddLogEntry("Packages upgraded successfully!")
+				refreshPendingActions() // Call refresh after upgrade
+				return out, nil
+			}, "⬆️  Upgrading packages...", true, nil)
+		})
 	})
 
 	gcButton := widget.NewButton("🗑️  Run Garbage Collection", func() {

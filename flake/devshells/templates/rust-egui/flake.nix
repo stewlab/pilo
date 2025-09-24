@@ -2,7 +2,7 @@
   description = "A Rust development environment for egui GUI applications";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
     flake-utils.url = "github:numtide/flake-utils";
   };
 
@@ -21,6 +21,7 @@
 
             rustc
             cargo
+            rustup
             rust-analyzer
             clippy
             rustfmt
@@ -96,6 +97,15 @@
               xorg.libXdamage
               xorg.libXcomposite
             ])}:$LD_LIBRARY_PATH"
+
+            # ensure rust-src present for rust-analyzer
+            if ! rustup component list --installed | grep -q '^rust-src$'; then
+              echo "Installing rust-src via rustup..."
+              rustup component add rust-src || true
+            fi
+
+            # set RUST_SRC_PATH so rust-analyzer can find std library sources
+            export RUST_SRC_PATH="$HOME/.rustup/toolchains/$(rustup show active-toolchain | awk '{print $1}')/lib/rustlib/src/rust/library" || true
 
             echo ""
             echo "🦀 Entering Rust development environment..."

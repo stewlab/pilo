@@ -655,3 +655,16 @@ func SetNixBinPath(path string) error {
 	config.NixBinPath = path
 	return WriteConfig(config)
 }
+
+// GetUserDevshellsDir retrieves the directory where user-created devshells are stored.
+func GetUserDevshellsDir() string {
+	if App == nil {
+		// Fallback for CLI mode
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return ""
+		}
+		return filepath.Join(home, ".config", "pilo", "devshells")
+	}
+	return filepath.Join(GetInstallPath(), "devshells")
+}

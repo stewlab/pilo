@@ -17,6 +17,7 @@ func getDevshellTemplatesDir() string {
 // Devshell represents a development shell template.
 type Devshell struct {
 	Name        string
+	Path        string // Absolute path to the devshell directory
 	Type        string // "Normal" or "FHS"
 	Description string
 }
@@ -45,18 +46,28 @@ func InitDevshellFromTemplate(templateName, targetDir string) error {
 	return os.WriteFile(flakeNixPath, content, 0644)
 }
 
-// ListDevshells lists all available devshell templates.
-func ListDevshells() ([]Devshell, error) {
-	entries, err := os.ReadDir(getDevshellTemplatesDir())
+// ListDevshellTemplates lists all available devshell templates.
+func ListDevshellTemplates() ([]Devshell, error) {
+	templatesDir := getDevshellTemplatesDir()
+	if _, err := os.Stat(templatesDir); os.IsNotExist(err) {
+		// If the templates directory doesn't exist, it means no templates are available.
+		// This is not an error, just an empty list.
+		return []Devshell{}, nil
+	} else if err != nil {
+		return nil, fmt.Errorf("failed to access devshell templates directory: %w", err)
+	}
+
+	entries, err := os.ReadDir(templatesDir)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to read devshell templates directory: %w", err)
 	}
 
 	var devshells []Devshell
 	for _, entry := range entries {
 		if entry.IsDir() {
 			templateName := entry.Name()
-			flakePath := filepath.Join(getDevshellTemplatesDir(), templateName, "flake.nix")
+			templatePath := filepath.Join(getDevshellTemplatesDir(), templateName)
+			flakePath := filepath.Join(templatePath, "flake.nix")
 			if _, err := os.Stat(flakePath); err == nil {
 				description := "A development shell template."
 				shellType := "Normal"
@@ -64,11 +75,85 @@ func ListDevshells() ([]Devshell, error) {
 					description = "An FHS development shell template."
 					shellType = "FHS"
 				}
-				devshells = append(devshells, Devshell{Name: templateName, Type: shellType, Description: description})
+				devshells = append(devshells, Devshell{Name: templateName, Path: templatePath, Type: shellType, Description: description})
 			}
 		}
 	}
 	return devshells, nil
+}
+
+// ListUserDevshells lists all user-created devshells.
+func ListUserDevshells() ([]Devshell, error) {
+	// For now, let's assume user devshells are in a specific directory.
+	// We need to define where user devshells are stored.
+	// For this example, let's assume they are in config.GetUserDevshellsDir()
+	// If this function doesn't exist, we'll need to create it or define a different path.
+	userDevshellsDir := config.GetUserDevshellsDir()
+	if _, err := os.Stat(userDevshellsDir); os.IsNotExist(err) {
+		if err := os.MkdirAll(userDevshellsDir, 0755); err != nil {
+			return nil, fmt.Errorf("could not create user devshells directory '%s': %w", userDevshellsDir, err)
+		}
+		return []Devshell{}, nil // Directory created, but no devshells yet
+	} else if err != nil {
+		return nil, fmt.Errorf("failed to access user devshells directory: %w", err)
+	}
+
+	entries, err := os.ReadDir(userDevshellsDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read user devshells directory: %w", err)
+	}
+
+	var devshells []Devshell
+	for _, entry := range entries {
+		if entry.IsDir() {
+			devshellName := entry.Name()
+			devshellPath := filepath.Join(userDevshellsDir, devshellName)
+			flakePath := filepath.Join(devshellPath, "flake.nix")
+			if _, err := os.Stat(flakePath); err == nil {
+				// We can try to read the flake.nix to get more details if needed,
+				// but for now, just use the directory name as the devshell name.
+				devshells = append(devshells, Devshell{Name: devshellName, Path: devshellPath, Type: "User", Description: "User-created devshell"})
+			}
+		}
+	}
+	return devshells, nil
+}
+
+// EditDevshell opens the devshell's flake.nix in the default editor.
+func EditDevshell(devshellPath string) error {
+	flakeNixPath := filepath.Join(devshellPath, "flake.nix")
+	editorCmd := os.Getenv("EDITOR")
+	if editorCmd == "" {
+		editorCmd = "vi" // Default to vi if EDITOR is not set
+	}
+	cmd := exec.Command(editorCmd, flakeNixPath)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+// DuplicateDevshell duplicates an existing devshell.
+func DuplicateDevshell(sourcePath, newName string) error {
+	userDevshellsDir := config.GetUserDevshellsDir()
+	targetPath := filepath.Join(userDevshellsDir, newName)
+
+	if _, err := os.Stat(targetPath); err == nil {
+		return fmt.Errorf("devshell with name '%s' already exists", newName)
+	}
+
+	// Copy the entire directory
+	cmd := exec.Command("cp", "-r", sourcePath, targetPath)
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("failed to duplicate devshell: %w\nOutput: %s", err, string(output))
+	}
+	return nil
+}
+
+// DeleteDevshell deletes a user-created devshell.
+func DeleteDevshell(devshellPath string) error {
+	return os.RemoveAll(devshellPath)
 }
 
 // EnterDevshell starts a new terminal in the specified devshell directory.

@@ -144,7 +144,7 @@ func Rebuild(flakePath, password, nixpkgsUrl, homeManagerUrl string) (string, er
 	if _, err := GetInstalledPackages(); err != nil {
 		return out, fmt.Errorf("failed to refresh packages: %w", err)
 	}
-	if _, err := ListDevshells(); err != nil {
+	if _, err := ListDevshellTemplates(); err != nil {
 		return out, fmt.Errorf("failed to refresh devshells: %w", err)
 	}
 	if _, err := GetAliases(); err != nil {
@@ -194,9 +194,62 @@ func InstallConfig(path, registry, password string) error {
 
 }
 
-func Upgrade() (string, error) {
-	fmt.Println("Upgrading...")
-	return nix.RunCommand("nix", "flake", "update", "pilo")
+func Upgrade(password string) (string, error) {
+	fmt.Println("Upgrading flake inputs...")
+	flakePath := config.GetFlakePath()
+
+	// 1. Update all flake inputs
+	updateOutput, err := nix.RunCommand("nix", "flake", "update", "--flake", flakePath)
+	if err != nil {
+		return updateOutput, fmt.Errorf("failed to update flake inputs: %w", err)
+	}
+
+	// 2. Perform system or user profile upgrade based on Nix mode
+	var args []string
+	var out string
+	var rebuildErr error
+	switch nix.GetNixMode() {
+	case nix.NixOS:
+		fmt.Println("NixOS detected, running nixos-rebuild switch...")
+		args = []string{"nixos-rebuild", "switch", "--flake", flakePath + "#nixos"}
+		out, rebuildErr = RunCommandAndCommit("upgrade", password, args...)
+	case nix.MultiUser, nix.SingleUser:
+		var u *user.User
+		u, rebuildErr = user.Current()
+		if rebuildErr != nil {
+			return updateOutput, fmt.Errorf("could not get current user: %w", rebuildErr)
+		}
+		username := u.Username
+
+		systemType, rebuildErr := getSystemType()
+		if rebuildErr != nil {
+			return updateOutput, rebuildErr
+		}
+
+		fmt.Println("Home Manager detected, running home-manager switch...")
+		flakeRef := fmt.Sprintf("%s#%s@%s", flakePath, username, systemType)
+		args = []string{"home-manager", "switch", "--flake", flakeRef}
+		out, rebuildErr = RunCommandAndCommit("upgrade", "", args...) // Home Manager usually doesn't require sudo for switch
+	default:
+		rebuildErr = fmt.Errorf("no supported Nix installation found for upgrade")
+	}
+
+	if rebuildErr != nil {
+		return updateOutput + "\n" + out, fmt.Errorf("upgrade failed: %w\nOutput:\n%s", rebuildErr, out)
+	}
+
+	// Refresh the data after upgrade
+	if _, err := GetInstalledPackages(); err != nil {
+		return out, fmt.Errorf("failed to refresh packages after upgrade: %w", err)
+	}
+	if _, err := ListDevshellTemplates(); err != nil {
+		return out, fmt.Errorf("failed to refresh devshells after upgrade: %w", err)
+	}
+	if _, err := GetAliases(); err != nil {
+		return out, fmt.Errorf("failed to refresh aliases after upgrade: %w", err)
+	}
+
+	return updateOutput + "\n" + out, nil
 }
 
 func GC() (string, error) {
