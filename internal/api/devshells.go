@@ -29,13 +29,26 @@ func InitDevshellFromTemplate(templateName, targetDir string) error {
 		return fmt.Errorf("devshell template '%s' not found", templateName)
 	}
 
-	if err := os.MkdirAll(targetDir, 0755); err != nil {
-		return fmt.Errorf("could not create target directory '%s': %w", targetDir, err)
+	// Ensure user devshells directory exists
+	userDevshellsDir := config.GetUserDevshellsDir()
+	if err := os.MkdirAll(userDevshellsDir, 0755); err != nil {
+		return fmt.Errorf("could not create user devshells directory '%s': %w", userDevshellsDir, err)
 	}
 
-	flakeNixPath := filepath.Join(targetDir, "flake.nix")
+	// Prevent absolute or parent directory traversal
+	cleanTargetDir := filepath.Clean(targetDir)
+	if filepath.IsAbs(cleanTargetDir) || strings.HasPrefix(cleanTargetDir, "..") || cleanTargetDir == "" {
+		return fmt.Errorf("invalid target directory name: '%s'", targetDir)
+	}
+
+	absTargetDir := filepath.Join(userDevshellsDir, cleanTargetDir)
+	if err := os.MkdirAll(absTargetDir, 0755); err != nil {
+		return fmt.Errorf("could not create target directory '%s': %w", absTargetDir, err)
+	}
+
+	flakeNixPath := filepath.Join(absTargetDir, "flake.nix")
 	if _, err := os.Stat(flakeNixPath); err == nil {
-		return fmt.Errorf("a 'flake.nix' file already exists in '%s'", targetDir)
+		return fmt.Errorf("a 'flake.nix' file already exists in '%s'", absTargetDir)
 	}
 
 	content, err := os.ReadFile(templatePath)

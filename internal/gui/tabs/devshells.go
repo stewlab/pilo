@@ -72,9 +72,13 @@ func CreateDevshellTab(runCmd func(func() error, string, bool, func()), w fyne.W
 						if !ok || dirEntry.Text == "" {
 							return
 						}
-						runCmd(func() error {
-							return api.InitDevshellFromTemplate(template.Name, dirEntry.Text)
-						}, "✨ Initializing devshell...", true, tab.Refresh)
+			       runCmd(func() error {
+				       err := api.InitDevshellFromTemplate(template.Name, dirEntry.Text)
+				       if err == nil {
+					       tab.Refresh()
+				       }
+				       return err
+			       }, "✨ Initializing devshell...", true, tab.Refresh)
 					},
 				)
 			}
