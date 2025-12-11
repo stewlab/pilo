@@ -10,6 +10,32 @@ import (
 	"strings"
 )
 
+// GetDevshellContent returns the content of a devshell's flake.nix file.
+func GetDevshellContent(name string) (string, error) {
+	userDevshellsDir := config.GetUserDevshellsDir()
+	flakeNixPath := filepath.Join(userDevshellsDir, name, "flake.nix")
+	content, err := os.ReadFile(flakeNixPath)
+	if err != nil {
+		return "", err
+	}
+	return string(content), nil
+}
+
+// UpdateDevshell updates the content of a devshell's flake.nix file.
+func UpdateDevshell(name, content string) error {
+	userDevshellsDir := config.GetUserDevshellsDir()
+	flakeNixPath := filepath.Join(userDevshellsDir, name, "flake.nix")
+	return os.WriteFile(flakeNixPath, []byte(content), 0644)
+}
+
+// RenameDevShell renames a devshell directory.
+func RenameDevShell(oldName, newName string) error {
+	userDevshellsDir := config.GetUserDevshellsDir()
+	oldPath := filepath.Join(userDevshellsDir, oldName)
+	newPath := filepath.Join(userDevshellsDir, newName)
+	return os.Rename(oldPath, newPath)
+}
+
 func getDevshellTemplatesDir() string {
 	return filepath.Join(config.GetFlakePath(), "devshells", "templates")
 }

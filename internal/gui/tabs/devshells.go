@@ -3,6 +3,7 @@ package tabs
 import (
 	"fmt"
 	"pilo/internal/api"
+	"pilo/internal/config"
 	"pilo/internal/dialogs"
 
 	"fyne.io/fyne/v2"
@@ -72,13 +73,13 @@ func CreateDevshellTab(runCmd func(func() error, string, bool, func()), w fyne.W
 						if !ok || dirEntry.Text == "" {
 							return
 						}
-			       runCmd(func() error {
-				       err := api.InitDevshellFromTemplate(template.Name, dirEntry.Text)
-				       if err == nil {
-					       tab.Refresh()
-				       }
-				       return err
-			       }, "✨ Initializing devshell...", true, tab.Refresh)
+						runCmd(func() error {
+							err := api.InitDevshellFromTemplate(template.Name, dirEntry.Text)
+							if err == nil {
+								tab.Refresh()
+							}
+							return err
+						}, "✨ Initializing devshell...", true, tab.Refresh)
 					},
 				)
 			}
@@ -114,9 +115,50 @@ func CreateDevshellTab(runCmd func(func() error, string, bool, func()), w fyne.W
 			deleteButton := buttons.Objects[3].(*widget.Button)
 
 			editButton.OnTapped = func() {
-				runCmd(func() error {
-					return api.EditDevshell(devshell.Path)
-				}, "Opening editor...", false, nil)
+				if config.GetDevshellExternalEditor() {
+					runCmd(func() error {
+						return api.EditDevshell(devshell.Path)
+					}, "Opening editor...", false, nil)
+				} else {
+					content, err := api.GetDevshellContent(devshell.Name)
+					if err != nil {
+						dialogs.ShowErrorDialog(err, w)
+						return
+					}
+					fileNameEntry := widget.NewEntry()
+					fileNameEntry.SetText(devshell.Name)
+
+					contentEntry := widget.NewMultiLineEntry()
+					contentEntry.SetText(content)
+					contentScroll := container.NewScroll(contentEntry)
+					contentScroll.SetMinSize(fyne.NewSize(400, 200))
+
+					dialogContent := container.NewVBox(
+						widget.NewLabel("Filename:"),
+						fileNameEntry,
+						contentScroll,
+					)
+
+					dialogs.ShowCustomConfirm(w, "Edit Devshell", "💾 Save", "Cancel", dialogContent, func(ok bool) {
+						if ok {
+							runCmd(func() error {
+								err := api.UpdateDevshell(devshell.Name, contentEntry.Text)
+								if err != nil {
+									return err
+								}
+								if fileNameEntry.Text != devshell.Name {
+									err = api.RenameDevShell(devshell.Name, fileNameEntry.Text)
+									if err != nil {
+										return err
+									}
+								}
+								return nil
+							}, "💾 Updating devshell...", false, func() {
+								tab.Refresh()
+							})
+						}
+					})
+				}
 			}
 
 			enterButton.OnTapped = func() {

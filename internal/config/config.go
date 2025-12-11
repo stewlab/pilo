@@ -36,15 +36,34 @@ type User struct {
 }
 
 type BaseConfig struct {
-	CommitTriggers []string          `json:"commit_triggers"`
-	Packages       []Package         `json:"-"`
-	Aliases        map[string]string `json:"-"`
-	PushOnCommit   bool              `json:"push_on_commit"`
-	RemoteURL      string            `json:"remote_url"`
-	RemoteBranch   string            `json:"remote_branch"`
-	System         System            `json:"system"`
-	Users          []User            `json:"-"`
-	NixBinPath     string            `json:"nix_bin_path"`
+	CommitTriggers         []string          `json:"commit_triggers"`
+	Packages               []Package         `json:"-"`
+	Aliases                map[string]string `json:"-"`
+	PushOnCommit           bool              `json:"push_on_commit"`
+	RemoteURL              string            `json:"remote_url"`
+	RemoteBranch           string            `json:"remote_branch"`
+	System                 System            `json:"system"`
+	Users                  []User            `json:"-"`
+	NixBinPath             string            `json:"nix_bin_path"`
+	DevshellExternalEditor bool              `json:"devshell_external_editor"`
+}
+
+// GetDevshellExternalEditor returns whether to use an external editor for devshells.
+func GetDevshellExternalEditor() bool {
+	if App == nil {
+		return false
+	}
+	// Try to get from preferences first
+	return App.Preferences().BoolWithFallback("devshellExternalEditor", false)
+}
+
+// SetDevshellExternalEditor sets the preference for using an external editor for devshells.
+func SetDevshellExternalEditor(val bool) {
+	if App == nil {
+		return
+	}
+	App.Preferences().SetBool("devshellExternalEditor", val)
+	// Removed stray closing brace to fix syntax error.
 }
 
 // PackagesConfig defines the structure for the packages.json file.
