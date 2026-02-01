@@ -20,14 +20,19 @@ var searchCmd = &cobra.Command{
 		spinner.Start()
 		sortByPopularity, _ := cmd.Flags().GetBool("sort-by-popularity")
 		freeOnly, _ := cmd.Flags().GetBool("free-only")
-		out, err := api.Search(args, sortByPopularity, freeOnly)
+		system, _ := cmd.Flags().GetString("system")
+		out, err := api.Search(args, sortByPopularity, freeOnly, system)
 		spinner.Stop()
 		if err != nil {
 			fmt.Println("Error searching for packages:", err)
 			os.Exit(1)
 		}
 		for _, pkg := range out {
-			fmt.Printf("%s - %s\n", pkg.Name, pkg.Description)
+			if pkg.Attribute != "" {
+				fmt.Printf("%s (%s) - %s\n", pkg.Name, pkg.Attribute, pkg.Description)
+			} else {
+				fmt.Printf("%s - %s\n", pkg.Name, pkg.Description)
+			}
 		}
 	},
 }
@@ -36,4 +41,5 @@ func init() {
 	rootCmd.AddCommand(searchCmd)
 	searchCmd.Flags().BoolP("sort-by-popularity", "p", false, "Sort results by popularity")
 	searchCmd.Flags().BoolP("free-only", "f", false, "Show only free software")
+	searchCmd.Flags().StringP("system", "s", "", "Filter results for a specific system (e.g., x86_64-linux)")
 }

@@ -27,6 +27,7 @@ type Package struct {
 	Name        string `json:"name"`
 	Description string `json:"description,omitempty"`
 	Installed   bool   `json:"installed"`
+	Attribute   string `json:"attribute,omitempty"`
 }
 
 type User struct {
