@@ -116,7 +116,11 @@ func CreatePackagesTab(runCmd func(func() error, string, bool, func()), a fyne.A
 			pkg := item.(config.Package)
 			container := o.(*fyne.Container)
 			label := container.Objects[0].(*widget.Label)
-			label.SetText(pkg.Name + " - " + pkg.Description)
+			if pkg.Attribute != "" {
+				label.SetText(pkg.Name + " (" + pkg.Attribute + ") - " + pkg.Description)
+			} else {
+				label.SetText(pkg.Name + " - " + pkg.Description)
+			}
 
 			buttons := container.Objects[1].(*fyne.Container)
 			installButton := buttons.Objects[0].(*widget.Button)
@@ -151,10 +155,12 @@ func CreatePackagesTab(runCmd func(func() error, string, bool, func()), a fyne.A
 
 	sortByPopularityCheck := widget.NewCheck("Sort by popularity", nil)
 	freeOnlyCheck := widget.NewCheck("Show only free software", nil)
+	systemSelect := widget.NewSelect([]string{"", "x86_64-linux", "aarch64-linux", "x86_64-darwin"}, nil)
+	systemSelect.SetSelected("")
 
 	searchButton := widget.NewButton("🔍  Search", func() {
 		dialogs.ShowRunningCommandDialog(w, "🔍  Searching...", func() (string, error) {
-			out, err := api.Search(strings.Fields(searchEntry.Text), sortByPopularityCheck.Checked, freeOnlyCheck.Checked)
+			out, err := api.Search(strings.Fields(searchEntry.Text), sortByPopularityCheck.Checked, freeOnlyCheck.Checked, systemSelect.Selected)
 			if err != nil {
 				config.AddLogEntry("Error searching packages: " + err.Error())
 				return "", err
@@ -177,6 +183,7 @@ func CreatePackagesTab(runCmd func(func() error, string, bool, func()), a fyne.A
 		searchEntry,
 		sortByPopularityCheck,
 		freeOnlyCheck,
+		container.NewHBox(widget.NewLabel("System:"), systemSelect),
 		searchButton,
 	)
 	searchBox := container.NewBorder(searchControls, nil, nil, nil, resultsList)

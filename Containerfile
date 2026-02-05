@@ -2,7 +2,8 @@
 
 # ---- Builder Stage ----
 # This stage builds the Go application.
-FROM public.ecr.aws/docker/library/fedora:42 AS builder
+ARG PLATFORM=linux/amd64
+FROM --platform=${PLATFORM} public.ecr.aws/docker/library/fedora:42 AS builder
 
 # Install build dependencies
 RUN dnf install -y \
@@ -31,8 +32,14 @@ RUN dnf install -y \
     at-spi2-core-devel \
     libxcb-devel \
     portaudio-devel \
-    alsa-lib-devel && \
+    alsa-lib-devel \
+    sudo && \
     dnf clean all
+
+# Install Nix
+RUN sh <(curl --proto '=https' --tlsv1.2 -L https://nixos.org/nix/install) --daemon
+# RUN sh <(curl --proto '=https' --tlsv1.2 -L https://nixos.org/nix/install) --no-daemon
+
 
 # Set Go environment variables
 ENV GOPROXY=direct
@@ -62,7 +69,7 @@ CMD /bin/sh -c "if [ \"${TOOL}\" = \"true\" ]; then sleep infinity; else exec /u
 
 # ---- Runner Stage ----
 # This stage creates the final, smaller image.
-FROM public.ecr.aws/docker/library/fedora:42
+FROM public.ecr.aws/docker/library/fedora:42 AS runner
 
 # Install only runtime dependencies
 RUN dnf install -y \

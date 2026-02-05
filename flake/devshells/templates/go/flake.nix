@@ -1,40 +1,24 @@
 {
-  description = "Pilo application Nix flake";
+  description = "A Go development environment";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable"; # Use unstable for newer packages
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
+    flake-utils.url = "github:numtide/flake-utils";
   };
 
-  outputs = { self, nixpkgs, ... }@inputs:
-    let
-      # List of supported systems
-      supportedSystems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
-
-      # Helper function to generate outputs for each system
-      forAllSystems = f: nixpkgs.lib.genAttrs supportedSystems (system: f {
-        pkgs = import nixpkgs {
-          inherit system;
-          config.allowUnfree = true;
-        };
-      });
-    in
-    {
-      # Generate packages for each supported system
-      packages = forAllSystems ({ pkgs }: {
-        default = import ./nix/pilo.nix { inherit pkgs; };
-      });
-
-      # Generate devShells for each supported system
-      devShells = forAllSystems ({ pkgs }: {
-        default = pkgs.mkShell {
+  outputs = { self, nixpkgs, flake-utils }:
+    flake-utils.lib.eachDefaultSystem (system:
+      let
+        pkgs = import nixpkgs { inherit system; };
+      in
+      {
+        devShells.default = pkgs.mkShell {
           packages = with pkgs; [
             go_1_23
             gopls
             delve
             pkg-config
-            nix
-          ]
-          ++ (pkgs.lib.optionals pkgs.stdenv.isLinux (with pkgs; [
+
             mesa
             libglvnd
             libglvnd.dev
@@ -58,14 +42,15 @@
             xorg.libxcb
             portaudio
             alsa-lib
-          ]));
-
-          nativeBuildInputs = with pkgs; [
-            fzf
-            neovim
           ];
 
-          shellHook = pkgs.lib.optionalString pkgs.stdenv.isLinux ''
+          nativeBuildInputs = with pkgs; [
+             fzf
+             neovim
+             lunarvim
+           ];
+
+           shellHook = ''
             export LD_LIBRARY_PATH="${pkgs.lib.makeLibraryPath (with pkgs; [
               wayland
               libxkbcommon
@@ -83,8 +68,10 @@
               xorg.libXdamage
               xorg.libXcomposite
             ])}:$LD_LIBRARY_PATH"
+
+            echo "🚀 Entering 'goEnv' dev shell (Go 1.23, Stable Nixpkgs)"
+            echo ""
           '';
         };
       });
-    };
 }

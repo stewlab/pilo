@@ -46,7 +46,6 @@
 
         nativeBuildInputs = with pkgs; [
           fzf
-          nerd-fonts.jetbrains-mono
         ];
 
         shellHook = ''

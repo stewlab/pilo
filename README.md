@@ -45,6 +45,9 @@ To use the flake, build and apply it to your system using standard Nix commands:
 
 This method gives you full control over the Nix configuration, allowing you to integrate it into your existing setup.
 
+> **Note:** The GUI also has a **configuration editor** that lets you manually edit the entire **flake config**.
+
+
 ## Usage Examples
 
 Here are a few examples of how you can use Pilo to manage your Nix environment.

@@ -1,165 +1,224 @@
 package tabs
 
 import (
+	"fmt"
 	"pilo/internal/api"
+	"pilo/internal/config"
+	"pilo/internal/dialogs"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/container"
-	"fyne.io/fyne/v2/layout"
 	"fyne.io/fyne/v2/widget"
-
-	"pilo/internal/dialogs"
 )
 
 type DevshellTab struct {
 	fyne.CanvasObject
-	list      *widget.List
-	devshells []api.Devshell
+	templateList  *widget.List
+	userList      *widget.List
+	templates     []api.Devshell
+	userDevshells []api.Devshell
+	runCmd        func(func() error, string, bool, func())
+	window        fyne.Window
 }
 
 func (t *DevshellTab) Refresh() {
-	t.devshells, _ = api.ListDevshells()
-	t.list.Refresh()
+	var err error
+	t.templates, err = api.ListDevshellTemplates()
+	if err != nil {
+		fyne.LogError("Failed to list devshell templates", err)
+	}
+	t.templateList.Refresh()
+
+	t.userDevshells, err = api.ListUserDevshells()
+	if err != nil {
+		fyne.LogError("Failed to list user devshells", err)
+	}
+	t.userList.Refresh()
 }
 
-func CreateDevshellTab(runCmd func(func() error, string, bool, func()), flakePath string, w fyne.Window, refreshPendingActions func()) *DevshellTab {
-	tab := &DevshellTab{}
-
-	var err error
-	tab.devshells, err = api.ListDevshells()
-	if err != nil {
-		// handle error
+func CreateDevshellTab(runCmd func(func() error, string, bool, func()), w fyne.Window) *DevshellTab {
+	tab := &DevshellTab{
+		runCmd: runCmd,
+		window: w,
 	}
 
-	tab.list = widget.NewList(
+	tab.templateList = widget.NewList(
 		func() int {
-			return len(tab.devshells)
+			return len(tab.templates)
 		},
 		func() fyne.CanvasObject {
-			return container.NewHBox(
-				widget.NewLabel("template"),
-				layout.NewSpacer(),
-				widget.NewButton("...", nil),
+			return container.NewBorder(
+				nil, nil, nil,
+				widget.NewButton("✨ Initialize", nil),
+				widget.NewLabel("Template Name"),
 			)
 		},
 		func(i widget.ListItemID, o fyne.CanvasObject) {
-			shellName := tab.devshells[i].Name
-			hbox := o.(*fyne.Container)
-			label := hbox.Objects[0].(*widget.Label)
-			label.SetText(shellName)
+			template := tab.templates[i]
+			c := o.(*fyne.Container)
+			label := c.Objects[0].(*widget.Label)
+			label.SetText(template.Name)
 
-			button := hbox.Objects[2].(*widget.Button)
+			button := c.Objects[1].(*widget.Button)
 			button.OnTapped = func() {
-				menu := fyne.NewMenu("",
-					fyne.NewMenuItem("▶️  Enter", func() {
-						runCmd(func() error {
-							return api.EnterDevshell(shellName, flakePath)
-						}, "▶️  Entering devshell...", false, nil)
-					}),
-					fyne.NewMenuItem("✏️  Edit", func() {
-						content, err := api.GetDevshellContent(shellName)
-						if err != nil {
-							dialogs.ShowErrorDialog(err, w)
+				dirEntry := widget.NewEntry()
+				dirEntry.SetPlaceHolder("my-new-project")
+
+				dialogs.ShowCustomConfirm(w, "Initialize Devshell", "Initialize", "Cancel",
+					container.NewVBox(
+						widget.NewLabel("Enter a directory name for the new devshell:"),
+						dirEntry,
+					),
+					func(ok bool) {
+						if !ok || dirEntry.Text == "" {
 							return
 						}
-						fileNameEntry := widget.NewEntry()
-						fileNameEntry.SetText(shellName)
-
-						contentEntry := widget.NewMultiLineEntry()
-						contentEntry.SetText(content)
-						contentScroll := container.NewScroll(contentEntry)
-						contentScroll.SetMinSize(fyne.NewSize(400, 200))
-
-						dialogContent := container.NewVBox(
-							widget.NewLabel("Name:"),
-							fileNameEntry,
-							contentScroll,
-						)
-
-						dialogs.ShowCustomConfirm(w, "Edit Devshell", "💾  Save", "Cancel", dialogContent, func(ok bool) {
-							if ok {
-								runCmd(func() error {
-									err := api.UpdateDevshell(shellName, contentEntry.Text)
-									if err != nil {
-										return err
-									}
-									if fileNameEntry.Text != shellName {
-										err = api.RenameDevShell(shellName, fileNameEntry.Text)
-										if err != nil {
-											return err
-										}
-									}
-									return nil
-								}, "💾  Updating devshell...", false, func() {
-									tab.Refresh()
-									refreshPendingActions()
-								})
-							}
-						})
-					}),
-					fyne.NewMenuItem("📋  Duplicate", func() {
 						runCmd(func() error {
-							return api.DuplicateDevShell(shellName)
-						}, "📋  Duplicating devshell...", false, func() {
-							tab.Refresh()
-						})
-					}),
-					fyne.NewMenuItem("🗑️  Remove", func() {
-						dialogs.ShowConfirm(w, "Remove Devshell", "Are you sure you want to remove "+shellName+"?", func(ok bool) {
-							if ok {
-								runCmd(func() error {
-									return api.RemoveDevshell(shellName)
-								}, "🗑️  Removing devshell...", false, func() {
-									tab.Refresh()
-								})
+							err := api.InitDevshellFromTemplate(template.Name, dirEntry.Text)
+							if err == nil {
+								tab.Refresh()
 							}
-						})
-					}),
+							return err
+						}, "✨ Initializing devshell...", true, tab.Refresh)
+					},
 				)
-				widget.NewPopUpMenu(menu, w.Canvas()).ShowAtPosition(fyne.CurrentApp().Driver().AbsolutePositionForObject(button))
 			}
 		},
 	)
 
-	addShellButton := widget.NewButton("➕  Add Devshell", func() {
-		nameEntry := widget.NewEntry()
-		nameEntry.SetPlaceHolder("Enter devshell name (optional)")
+	tab.userList = widget.NewList(
+		func() int {
+			return len(tab.userDevshells)
+		},
+		func() fyne.CanvasObject {
+			return container.NewBorder(
+				nil, nil, nil,
+				container.NewHBox(
+					widget.NewButton("✏️ Edit", nil),
+					widget.NewButton("🚀 Enter", nil),
+					widget.NewButton("📋 Duplicate", nil),
+					widget.NewButton("🗑️ Delete", nil),
+				),
+				widget.NewLabel("Devshell Name"),
+			)
+		},
+		func(i widget.ListItemID, o fyne.CanvasObject) {
+			devshell := tab.userDevshells[i]
+			c := o.(*fyne.Container)
+			label := c.Objects[0].(*widget.Label)
+			label.SetText(devshell.Name)
 
-		contentEntry := widget.NewMultiLineEntry()
-		contentEntry.SetPlaceHolder("Enter devshell content here...")
-		contentScroll := container.NewScroll(contentEntry)
-		contentScroll.SetMinSize(fyne.NewSize(400, 200))
+			buttons := c.Objects[1].(*fyne.Container)
+			editButton := buttons.Objects[0].(*widget.Button)
+			enterButton := buttons.Objects[1].(*widget.Button)
+			duplicateButton := buttons.Objects[2].(*widget.Button)
+			deleteButton := buttons.Objects[3].(*widget.Button)
 
-		dialogContent := container.NewVBox(
-			widget.NewLabel("Name:"),
-			nameEntry,
-			contentScroll,
-		)
+			editButton.OnTapped = func() {
+				if config.GetDevshellExternalEditor() {
+					runCmd(func() error {
+						return api.EditDevshell(devshell.Path)
+					}, "Opening editor...", false, nil)
+				} else {
+					content, err := api.GetDevshellContent(devshell.Name)
+					if err != nil {
+						dialogs.ShowErrorDialog(err, w)
+						return
+					}
+					fileNameEntry := widget.NewEntry()
+					fileNameEntry.SetText(devshell.Name)
 
-		dialogs.ShowCustomConfirm(w, "Add Devshell", "Add", "Cancel", dialogContent, func(ok bool) {
-			if ok {
-				runCmd(func() error {
-					return api.AddDevshellWithContent(nameEntry.Text, contentEntry.Text)
-				}, "➕  Adding devshell...", false, func() {
-					tab.Refresh()
-				})
+					contentEntry := widget.NewMultiLineEntry()
+					contentEntry.SetText(content)
+					contentScroll := container.NewScroll(contentEntry)
+					contentScroll.SetMinSize(fyne.NewSize(400, 200))
+
+					dialogContent := container.NewVBox(
+						widget.NewLabel("Filename:"),
+						fileNameEntry,
+						contentScroll,
+					)
+
+					dialogs.ShowCustomConfirm(w, "Edit Devshell", "💾 Save", "Cancel", dialogContent, func(ok bool) {
+						if ok {
+							runCmd(func() error {
+								err := api.UpdateDevshell(devshell.Name, contentEntry.Text)
+								if err != nil {
+									return err
+								}
+								if fileNameEntry.Text != devshell.Name {
+									err = api.RenameDevShell(devshell.Name, fileNameEntry.Text)
+									if err != nil {
+										return err
+									}
+								}
+								return nil
+							}, "💾 Updating devshell...", false, func() {
+								tab.Refresh()
+							})
+						}
+					})
+				}
 			}
-		})
-	})
 
-	devshellsAccordion := widget.NewAccordion()
-	for _, shell := range tab.devshells {
-		item := widget.NewAccordionItem(
-			shell.Name,
-			widget.NewLabel(shell.Description),
-		)
-		devshellsAccordion.Append(item)
-	}
+			enterButton.OnTapped = func() {
+				runCmd(func() error {
+					return api.EnterDevshell(devshell.Path)
+				}, "Entering devshell...", false, nil)
+			}
 
-	controls := container.NewVBox(
-		addShellButton,
+			duplicateButton.OnTapped = func() {
+				nameEntry := widget.NewEntry()
+				nameEntry.SetPlaceHolder(devshell.Name + "-copy")
+
+				dialogs.ShowCustomConfirm(w, "Duplicate Devshell", "Duplicate", "Cancel",
+					container.NewVBox(
+						widget.NewLabel("Enter a new name for the duplicated devshell:"),
+						nameEntry,
+					),
+					func(ok bool) {
+						if !ok || nameEntry.Text == "" {
+							return
+						}
+						runCmd(func() error {
+							return api.DuplicateDevshell(devshell.Path, nameEntry.Text)
+						}, "Duplicating devshell...", true, tab.Refresh)
+					},
+				)
+			}
+
+			deleteButton.OnTapped = func() {
+				dialogs.ShowCustomConfirm(w, "Delete Devshell", "Delete", "Cancel",
+					widget.NewLabel(fmt.Sprintf("Are you sure you want to delete devshell '%s'?", devshell.Name)),
+					func(ok bool) {
+						if !ok {
+							return
+						}
+						runCmd(func() error {
+							return api.DeleteDevshell(devshell.Path)
+						}, "Deleting devshell...", true, tab.Refresh)
+					},
+				)
+			}
+		},
 	)
-	content := container.NewBorder(controls, nil, nil, nil, tab.list)
-	tab.CanvasObject = container.NewPadded(content)
+	tab.Refresh() // Initial load
+
+	tab.CanvasObject = container.NewBorder(
+		container.NewPadded(widget.NewLabel("Devshell Templates:")),
+		nil,
+		nil,
+		nil,
+		container.NewVSplit(
+			container.NewPadded(tab.templateList),
+			container.NewBorder(
+				container.NewPadded(widget.NewLabel("Your Devshells:")),
+				nil,
+				nil,
+				nil,
+				container.NewPadded(tab.userList),
+			),
+		),
+	)
 	return tab
 }

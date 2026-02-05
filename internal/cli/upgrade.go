@@ -5,8 +5,10 @@ import (
 	"os"
 
 	"pilo/internal/api"
+	"pilo/internal/nix"
 	"pilo/internal/spinner"
 
+	"github.com/AlecAivazis/survey/v2"
 	"github.com/spf13/cobra"
 )
 
@@ -17,7 +19,16 @@ var upgradeCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		spinner := spinner.NewSpinner("Upgrading packages...")
 		defer spinner.Stop()
-		if _, err := api.Upgrade(); err != nil {
+
+		var password string
+		if nix.GetNixMode() == nix.NixOS {
+			prompt := &survey.Password{
+				Message: "Please enter your password:",
+			}
+			survey.AskOne(prompt, &password)
+		}
+
+		if _, err := api.Upgrade(password); err != nil {
 			fmt.Println("Error upgrading:", err)
 			os.Exit(1)
 		}

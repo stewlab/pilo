@@ -27,6 +27,7 @@ type Package struct {
 	Name        string `json:"name"`
 	Description string `json:"description,omitempty"`
 	Installed   bool   `json:"installed"`
+	Attribute   string `json:"attribute,omitempty"`
 }
 
 type User struct {
@@ -36,15 +37,34 @@ type User struct {
 }
 
 type BaseConfig struct {
-	CommitTriggers []string          `json:"commit_triggers"`
-	Packages       []Package         `json:"-"`
-	Aliases        map[string]string `json:"-"`
-	PushOnCommit   bool              `json:"push_on_commit"`
-	RemoteURL      string            `json:"remote_url"`
-	RemoteBranch   string            `json:"remote_branch"`
-	System         System            `json:"system"`
-	Users          []User            `json:"-"`
-	NixBinPath     string            `json:"nix_bin_path"`
+	CommitTriggers         []string          `json:"commit_triggers"`
+	Packages               []Package         `json:"-"`
+	Aliases                map[string]string `json:"-"`
+	PushOnCommit           bool              `json:"push_on_commit"`
+	RemoteURL              string            `json:"remote_url"`
+	RemoteBranch           string            `json:"remote_branch"`
+	System                 System            `json:"system"`
+	Users                  []User            `json:"-"`
+	NixBinPath             string            `json:"nix_bin_path"`
+	DevshellExternalEditor bool              `json:"devshell_external_editor"`
+}
+
+// GetDevshellExternalEditor returns whether to use an external editor for devshells.
+func GetDevshellExternalEditor() bool {
+	if App == nil {
+		return false
+	}
+	// Try to get from preferences first
+	return App.Preferences().BoolWithFallback("devshellExternalEditor", false)
+}
+
+// SetDevshellExternalEditor sets the preference for using an external editor for devshells.
+func SetDevshellExternalEditor(val bool) {
+	if App == nil {
+		return
+	}
+	App.Preferences().SetBool("devshellExternalEditor", val)
+	// Removed stray closing brace to fix syntax error.
 }
 
 // PackagesConfig defines the structure for the packages.json file.
@@ -654,4 +674,17 @@ func SetNixBinPath(path string) error {
 	}
 	config.NixBinPath = path
 	return WriteConfig(config)
+}
+
+// GetUserDevshellsDir retrieves the directory where user-created devshells are stored.
+func GetUserDevshellsDir() string {
+	if App == nil {
+		// Fallback for CLI mode
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return ""
+		}
+		return filepath.Join(home, ".config", "pilo", "devshells")
+	}
+	return filepath.Join(GetInstallPath(), "devshells")
 }

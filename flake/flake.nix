@@ -83,9 +83,6 @@
 
       packages.${system} = (builtins.removeAttrs packagesSet [ "default" "default-list" ]) // { pilo = packagesSet.pilo; };
 
-      devShells.${system} = import ./devshells {
-        inherit pkgs unstablePkgs lib;
-      };
 
       nixosConfigurations = {
         nixos = lib.nixosSystem {
@@ -96,6 +93,7 @@
             home-manager.nixosModules.home-manager
             {
               pilo.ollama.modelsPath = lib.attrByPath [ "system" "ollama" "models" ] "" config;
+              home-manager.backupFileExtension = "backup"; # Automatically back up conflicting files
               home-manager.useGlobalPkgs = true;
               home-manager.useUserPackages = true;
               home-manager.extraSpecialArgs = { inherit pkgs unstablePkgs self; };

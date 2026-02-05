@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"pilo/internal/config"
 	"pilo/internal/nix"
+	"sort"
 	"strings"
 )
 
@@ -73,9 +74,13 @@ func AddGitPackage(url string) error {
 }
 
 // Search searches for packages in nixpkgs.
-func Search(query []string, sortByPopularity bool, freeOnly bool) ([]config.Package, error) {
+func Search(query []string, sortByPopularity bool, freeOnly bool, system string) ([]config.Package, error) {
 	searchArgs := []string{"search", "nixpkgs", "--json"}
 	searchArgs = append(searchArgs, query...)
+	if system != "" {
+		// pass system to nix search if provided (e.g., x86_64-linux)
+		searchArgs = append(searchArgs, "--system", system)
+	}
 	out, err := nix.RunCommand("nix", searchArgs...)
 	if err != nil {
 		return nil, fmt.Errorf("error searching for packages: %w", err)
@@ -96,11 +101,34 @@ func Search(query []string, sortByPopularity bool, freeOnly bool) ([]config.Pack
 		return nil, fmt.Errorf("error unmarshaling search results: %w", err)
 	}
 
-	var packages []config.Package
-	for _, result := range results {
+	// results map keys are attribute paths. We'll build a list of attributes
+	// keyed by pname so we can show both the canonical pname and its
+	// attribute path in results. This preserves attribute-level information
+	// for the CLI/GUI while still allowing deduplication when desired.
+	attrByPname := make(map[string][]string)
+	descByAttr := make(map[string]string)
+	for attr, result := range results {
+		descByAttr[attr] = result.Description
+		attrByPname[result.Pname] = append(attrByPname[result.Pname], attr)
+	}
+
+	// Sort pnames for deterministic output
+	pnames := make([]string, 0, len(attrByPname))
+	for pname := range attrByPname {
+		pnames = append(pnames, pname)
+	}
+	sort.Strings(pnames)
+
+	packages := make([]config.Package, 0, len(pnames))
+	for _, pname := range pnames {
+		// pick the first attribute for description display (deterministic)
+		attrs := attrByPname[pname]
+		sort.Strings(attrs)
+		primaryAttr := attrs[0]
 		packages = append(packages, config.Package{
-			Name:        result.Pname,
-			Description: result.Description,
+			Name:        pname,
+			Description: descByAttr[primaryAttr],
+			Attribute:   primaryAttr,
 		})
 	}
 
