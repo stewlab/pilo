@@ -5,7 +5,7 @@ pkgs.buildGoModule {
   pname = "pilo";
   version = "0.1.0";
   src = ../.;
-  vendorSha256 = pkgs.lib.fakeSha256;
+  vendorHash = "sha256-4dJWkGZspGZwRajqXJdudiwh4eTDoETXDk8X3MCXPjY=";
   nativeBuildInputs = with pkgs; [
     pkg-config
   ];
